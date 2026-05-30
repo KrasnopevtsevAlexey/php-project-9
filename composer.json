@@ -18,7 +18,7 @@
         }
     },
     "scripts": {
-        "lint": "phpcs --standard=PSR12 src/ public/",
+        "lint": "phpcs --standard=PSR12 --ignore=vendor/* --extensions=php .",
         "test": "phpunit tests/"
     }
 }
