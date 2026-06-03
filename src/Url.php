@@ -11,7 +11,6 @@ class Url
     {
         $pdo = Connection::get();
         
-        // Нормализация URL
         $parsed = parse_url($name);
         
         if (!isset($parsed['scheme']) || !isset($parsed['host'])) {
@@ -20,7 +19,6 @@ class Url
         
         $normalizedName = strtolower($parsed['scheme'] . '://' . $parsed['host']);
         
-        // Проверка на существование
         $stmt = $pdo->prepare('SELECT * FROM urls WHERE name = :name');
         $stmt->execute([':name' => $normalizedName]);
         $existing = $stmt->fetch();
@@ -29,7 +27,6 @@ class Url
             return $existing;
         }
         
-        // Сохранение нового URL
         $stmt = $pdo->prepare('INSERT INTO urls (name, created_at) VALUES (:name, :created_at)');
         $createdAt = Carbon::now()->toDateTimeString();
         $stmt->execute([
@@ -51,17 +48,24 @@ class Url
     }
     
     public static function findAll(): array
-{
-    $pdo = Connection::get();
-    $stmt = $pdo->query('
-        SELECT 
-            urls.*, 
-            MAX(url_checks.created_at) as last_check_date
-        FROM urls
-        LEFT JOIN url_checks ON urls.id = url_checks.url_id
-        GROUP BY urls.id
-        ORDER BY urls.created_at DESC
-    ');
-    return $stmt->fetchAll();
-}
+    {
+        $pdo = Connection::get();
+        $stmt = $pdo->query('
+            SELECT 
+                urls.*, 
+                MAX(url_checks.created_at) as last_check_date,
+                (
+                    SELECT status_code 
+                    FROM url_checks 
+                    WHERE url_id = urls.id 
+                    ORDER BY created_at DESC 
+                    LIMIT 1
+                ) as last_status_code
+            FROM urls
+            LEFT JOIN url_checks ON urls.id = url_checks.url_id
+            GROUP BY urls.id
+            ORDER BY urls.created_at DESC
+        ');
+        return $stmt->fetchAll();
+    }
 }

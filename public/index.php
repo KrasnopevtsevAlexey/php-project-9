@@ -11,6 +11,7 @@ use GuzzleHttp\Client;
 use GuzzleHttp\Exception\RequestException;
 use DOMDocument;
 use Exception;
+use Symfony\Component\DomCrawler\Crawler;
 
 require __DIR__ . '/../vendor/autoload.php';
 
@@ -129,40 +130,40 @@ $app->post('/urls/{id}/checks', function (Request $request, Response $response, 
         return $response->withHeader('Location', '/urls')->withStatus(302);
     }
     
-    $client = new Client(['allow_redirects' => true, 'timeout' => 30]);
+    $client = new Client([
+        'allow_redirects' => true,
+        'timeout' => 30,
+        'connect_timeout' => 10,
+        'verify' => false
+    ]);
     
     try {
         $responseHttp = $client->get($url['name']);
-        $html = (string) $responseHttp->getBody();
         $statusCode = $responseHttp->getStatusCode();
+        $html = (string) $responseHttp->getBody();
         
-        $doc = new DOMDocument();
-        libxml_use_internal_errors(true);
-        $doc->loadHTML($html);
-        libxml_clear_errors();
+        // Используем DomCrawler для парсинга
+        $crawler = new Crawler($html);
         
+        // Извлекаем title
         $title = '';
-        $titleNodes = $doc->getElementsByTagName('title');
-        if ($titleNodes->length > 0) {
-            $title = trim($titleNodes->item(0)->textContent ?? '');
+        $titleNode = $crawler->filter('title')->first();
+        if ($titleNode->count() > 0) {
+            $title = trim($titleNode->text());
         }
         
+        // Извлекаем h1
         $h1 = '';
-        $h1Nodes = $doc->getElementsByTagName('h1');
-        if ($h1Nodes->length > 0) {
-            $h1 = trim($h1Nodes->item(0)->textContent ?? '');
+        $h1Node = $crawler->filter('h1')->first();
+        if ($h1Node->count() > 0) {
+            $h1 = trim($h1Node->text());
         }
         
+        // Извлекаем meta description
         $description = '';
-        $metas = $doc->getElementsByTagName('meta');
-        foreach ($metas as $meta) {
-            if ($meta instanceof DOMElement) {
-                $name = $meta->getAttribute('name');
-                if (strtolower($name) === 'description') {
-                    $description = trim($meta->getAttribute('content') ?? '');
-                    break;
-                }
-            }
+        $metaNode = $crawler->filter('meta[name="description"]')->first();
+        if ($metaNode->count() > 0) {
+            $description = trim($metaNode->attr('content') ?? '');
         }
         
         Check::save($id, [
@@ -175,7 +176,11 @@ $app->post('/urls/{id}/checks', function (Request $request, Response $response, 
         $flash->addMessage('success', 'Страница успешно проверена');
         
     } catch (RequestException $e) {
-        $flash->addMessage('error', 'Ошибка проверки: ' . $e->getMessage());
+        if ($e->hasResponse()) {
+            $flash->addMessage('error', 'Ошибка проверки: HTTP ' . $e->getResponse()->getStatusCode());
+        } else {
+            $flash->addMessage('error', 'Произошла ошибка при проверке: Не удалось подключиться к серверу');
+        }
     } catch (Exception $e) {
         $flash->addMessage('error', 'Произошла ошибка при проверке');
     }
