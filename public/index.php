@@ -119,7 +119,7 @@ $app->post('/urls', function (Request $request, Response $response) use ($flash)
     return $response->withHeader('Location', '/urls')->withStatus(302);
 });
 
-// Запуск проверки URL (ПОЛНАЯ ВЕРСИЯ)
+// Запуск проверки URL
 $app->post('/urls/{id}/checks', function (Request $request, Response $response, $args) use ($flash) {
     $id = (int) $args['id'];
     $url = Url::findById($id);
@@ -141,21 +141,18 @@ $app->post('/urls/{id}/checks', function (Request $request, Response $response, 
         $doc->loadHTML($html);
         libxml_clear_errors();
         
-        // Безопасное извлечение title
         $title = '';
         $titleNodes = $doc->getElementsByTagName('title');
         if ($titleNodes->length > 0) {
             $title = trim($titleNodes->item(0)->textContent ?? '');
         }
         
-        // Безопасное извлечение h1
         $h1 = '';
         $h1Nodes = $doc->getElementsByTagName('h1');
         if ($h1Nodes->length > 0) {
             $h1 = trim($h1Nodes->item(0)->textContent ?? '');
         }
         
-        // Безопасное извлечение meta description
         $description = '';
         $metas = $doc->getElementsByTagName('meta');
         foreach ($metas as $meta) {

@@ -51,15 +51,17 @@ class Url
     }
     
     public static function findAll(): array
-    {
-        $pdo = Connection::get();
-        $stmt = $pdo->query('
-            SELECT urls.*, MAX(url_checks.status_code) as last_status_code
-            FROM urls
-            LEFT JOIN url_checks ON urls.id = url_checks.url_id
-            GROUP BY urls.id
-            ORDER BY urls.created_at DESC
-        ');
-        return $stmt->fetchAll();
-    }
+{
+    $pdo = Connection::get();
+    $stmt = $pdo->query('
+        SELECT 
+            urls.*, 
+            MAX(url_checks.created_at) as last_check_date
+        FROM urls
+        LEFT JOIN url_checks ON urls.id = url_checks.url_id
+        GROUP BY urls.id
+        ORDER BY urls.created_at DESC
+    ');
+    return $stmt->fetchAll();
+}
 }

@@ -1,3 +1,11 @@
+<?php
+function truncate($text, $length = 200) {
+    if (empty($text)) return '';
+    if (mb_strlen($text) <= $length) return $text;
+    return mb_substr($text, 0, $length) . '...';
+}
+?>
+
 <div class="row">
     <div class="col-12">
         <h1 class="mb-4">Сайт: <?= htmlspecialchars($url['name']) ?></h1>
@@ -44,12 +52,12 @@
                 <?php else: ?>
                     <?php foreach ($checks as $check): ?>
                     <tr>
-                        <td><?= htmlspecialchars($check['id']) ?></td>
+                        <td><?= htmlspecialchars($check['id'] ?? '') ?></td>
                         <td><?= htmlspecialchars($check['status_code'] ?? '') ?></td>
-                        <td><?= htmlspecialchars($check['h1'] ?? '') ?></td>
-                        <td><?= htmlspecialchars($check['title'] ?? '') ?></td>
-                        <td><?= htmlspecialchars($check['description'] ?? '') ?></td>
-                        <td><?= htmlspecialchars($check['created_at']) ?></td>
+                        <td><?= htmlspecialchars(truncate($check['h1'] ?? '')) ?></td>
+                        <td><?= htmlspecialchars(truncate($check['title'] ?? '')) ?></td>
+                        <td><?= htmlspecialchars(truncate($check['description'] ?? '')) ?></td>
+                        <td><?= htmlspecialchars($check['created_at'] ?? '') ?></td>
                     </tr>
                     <?php endforeach; ?>
                 <?php endif; ?>
