@@ -141,18 +141,30 @@ $app->post('/urls/{id}/checks', function (Request $request, Response $response, 
         $doc->loadHTML($html);
         libxml_clear_errors();
         
+        // Безопасное извлечение title
+        $title = '';
         $titleNodes = $doc->getElementsByTagName('title');
-        $title = $titleNodes->length > 0 ? trim($titleNodes->item(0)->textContent) : '';
+        if ($titleNodes->length > 0) {
+            $title = trim($titleNodes->item(0)->textContent ?? '');
+        }
         
+        // Безопасное извлечение h1
+        $h1 = '';
         $h1Nodes = $doc->getElementsByTagName('h1');
-        $h1 = $h1Nodes->length > 0 ? trim($h1Nodes->item(0)->textContent) : '';
+        if ($h1Nodes->length > 0) {
+            $h1 = trim($h1Nodes->item(0)->textContent ?? '');
+        }
         
+        // Безопасное извлечение meta description
         $description = '';
         $metas = $doc->getElementsByTagName('meta');
         foreach ($metas as $meta) {
-            if (strtolower($meta->getAttribute('name')) === 'description') {
-                $description = trim($meta->getAttribute('content'));
-                break;
+            if ($meta instanceof DOMElement) {
+                $name = $meta->getAttribute('name');
+                if (strtolower($name) === 'description') {
+                    $description = trim($meta->getAttribute('content') ?? '');
+                    break;
+                }
             }
         }
         
