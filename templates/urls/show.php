@@ -10,6 +10,13 @@ function truncate($text, $length = 200) {
     <div class="col-12">
         <h1 class="mb-4">Сайт: <?= htmlspecialchars($url['name']) ?></h1>
         
+        <?php if (isset($flashMessages) && $flashMessages): ?>
+            <div class="alert alert-<?= $flashMessages['type'] === 'error' ? 'danger' : $flashMessages['type'] ?> alert-dismissible fade show" role="alert">
+                <?= htmlspecialchars($flashMessages['message']) ?>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        <?php endif; ?>
+        
         <table class="table table-bordered" data-test="url">
             <tbody>
                 <tr>

@@ -14,7 +14,10 @@ use Symfony\Component\DomCrawler\Crawler;
 
 require __DIR__ . '/../vendor/autoload.php';
 
-session_start();
+// Инициализация сессии
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 $app = AppFactory::create();
 $app->addErrorMiddleware(true, true, true);
@@ -141,24 +144,20 @@ $app->post('/urls/{id}/checks', function (Request $request, Response $response, 
         $statusCode = $responseHttp->getStatusCode();
         $html = (string) $responseHttp->getBody();
         
-        // Используем DomCrawler для парсинга
         $crawler = new Crawler($html);
         
-        // Извлекаем title
         $title = '';
         $titleNode = $crawler->filter('title')->first();
         if ($titleNode->count() > 0) {
             $title = trim($titleNode->text());
         }
         
-        // Извлекаем h1
         $h1 = '';
         $h1Node = $crawler->filter('h1')->first();
         if ($h1Node->count() > 0) {
             $h1 = trim($h1Node->text());
         }
         
-        // Извлекаем meta description
         $description = '';
         $metaNode = $crawler->filter('meta[name="description"]')->first();
         if ($metaNode->count() > 0) {
