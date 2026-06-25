@@ -7,12 +7,12 @@ use PDO;
 class Connection
 {
     private static ?PDO $connection = null;
-    
+
     public static function get(): PDO
     {
         if (self::$connection === null) {
             $databaseUrl = getenv('DATABASE_URL');
-            
+
             if (!$databaseUrl) {
                 // Локально используем SQLite
                 $dbPath = __DIR__ . '/../database.sqlite';
@@ -28,7 +28,7 @@ class Connection
                 self::$connection->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
             }
         }
-        
+
         return self::$connection;
     }
 }

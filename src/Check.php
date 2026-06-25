@@ -10,12 +10,12 @@ class Check
     public static function save(int $urlId, array $data): ?array
     {
         $pdo = Connection::get();
-        
+
         $stmt = $pdo->prepare('
             INSERT INTO url_checks (url_id, status_code, h1, title, description, created_at) 
             VALUES (:url_id, :status_code, :h1, :title, :description, :created_at)
         ');
-        
+
         $createdAt = Carbon::now()->toDateTimeString();
         $stmt->execute([
             ':url_id' => $urlId,
@@ -25,12 +25,12 @@ class Check
             ':description' => $data['description'] ?? null,
             ':created_at' => $createdAt
         ]);
-        
+
         $id = $pdo->lastInsertId();
-        
+
         return self::findById($id);
     }
-    
+
     public static function findByUrlId(int $urlId): array
     {
         $pdo = Connection::get();
@@ -38,7 +38,7 @@ class Check
         $stmt->execute([':url_id' => $urlId]);
         return $stmt->fetchAll();
     }
-    
+
     public static function findById(int $id): ?array
     {
         $pdo = Connection::get();
