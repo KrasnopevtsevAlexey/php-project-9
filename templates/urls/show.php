@@ -1,14 +1,6 @@
 <?php
-function truncate($text, $length = 200)
-{
-    if (empty($text)) {
-        return '';
-    }
-    if (mb_strlen($text) <= $length) {
-        return $text;
-    }
-    return mb_substr($text, 0, $length) . '...';
-}
+
+require_once __DIR__ . '/helpers.php';
 ?>
 
 <div class="row">
@@ -26,15 +18,21 @@ function truncate($text, $length = 200)
             <tbody>
                 <tr>
                     <th style="width: 200px">ID</th>
-                    <td><?= htmlspecialchars($url['id']) ?></td>
+                    <td>
+                        <?= htmlspecialchars($url['id']) ?>
+                    </td>
                 </tr>
                 <tr>
                     <th>Имя</th>
-                    <td><?= htmlspecialchars($url['name']) ?></td>
+                    <td>
+                        <?= htmlspecialchars($url['name']) ?>
+                    </td>
                 </tr>
                 <tr>
                     <th>Дата создания</th>
-                    <td><?= htmlspecialchars($url['created_at']) ?></td>
+                    <td>
+                        <?= htmlspecialchars($url['created_at']) ?>
+                    </td>
                 </tr>
             </tbody>
         </table>
@@ -57,22 +55,34 @@ function truncate($text, $length = 200)
                 </tr>
             </thead>
             <tbody>
-                <?php if (empty($checks)) : ?>
+                <?php if (empty($checks)) { ?>
                 <tr>
                     <td colspan="6" class="text-center">Проверок пока нет</td>
                 </tr>
-                <?php else : ?>
-                    <?php foreach ($checks as $check) : ?>
+                <?php } else { ?>
+                    <?php foreach ($checks as $check) { ?>
                     <tr>
-                        <td><?= htmlspecialchars($check['id'] ?? '') ?></td>
-                        <td><?= htmlspecialchars($check['status_code'] ?? '') ?></td>
-                        <td><?= htmlspecialchars(truncate($check['h1'] ?? '')) ?></td>
-                        <td><?= htmlspecialchars(truncate($check['title'] ?? '')) ?></td>
-                        <td><?= htmlspecialchars(truncate($check['description'] ?? '')) ?></td>
-                        <td><?= htmlspecialchars($check['created_at'] ?? '') ?></td>
+                        <td>
+                            <?= htmlspecialchars($check['id'] ?? '') ?>
+                        </td>
+                        <td>
+                            <?= htmlspecialchars($check['status_code'] ?? '') ?>
+                        </td>
+                        <td>
+                            <?= htmlspecialchars(truncate($check['h1'] ?? '')) ?>
+                        </td>
+                        <td>
+                            <?= htmlspecialchars(truncate($check['title'] ?? '')) ?>
+                        </td>
+                        <td>
+                            <?= htmlspecialchars(truncate($check['description'] ?? '')) ?>
+                        </td>
+                        <td>
+                            <?= htmlspecialchars($check['created_at'] ?? '') ?>
+                        </td>
                     </tr>
-                    <?php endforeach; ?>
-                <?php endif; ?>
+                    <?php } ?>
+                <?php } ?>
             </tbody>
         </table>
     </div>

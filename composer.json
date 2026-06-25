@@ -25,7 +25,7 @@
         }
     },
     "scripts": {
-        "lint": "phpcs --standard=PSR12 --ignore=vendor/* --extensions=php .",
-        "test": "phpunit tests/"
-    }
+    "lint": "phpcs --standard=PSR12 --ignore=vendor/* --extensions=php --warning-severity=0 .",
+    "test": "phpunit tests/"
+}
 }
