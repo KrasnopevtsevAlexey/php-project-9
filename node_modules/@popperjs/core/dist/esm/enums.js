@@ -11,10 +11,10 @@ export var viewport = 'viewport';
 export var popper = 'popper';
 export var reference = 'reference';
 export var variationPlacements = /*#__PURE__*/basePlacements.reduce(function (acc, placement) {
-  return acc.concat([placement + "-" + start, placement + "-" + end]);
+    return acc.concat([placement + "-" + start, placement + "-" + end]);
 }, []);
 export var placements = /*#__PURE__*/[].concat(basePlacements, [auto]).reduce(function (acc, placement) {
-  return acc.concat([placement, placement + "-" + start, placement + "-" + end]);
+    return acc.concat([placement, placement + "-" + start, placement + "-" + end]);
 }, []); // modifiers that need to read the DOM
 
 export var beforeRead = 'beforeRead';
