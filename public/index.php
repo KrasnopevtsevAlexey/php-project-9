@@ -9,7 +9,6 @@ use App\Url;
 use App\Check;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\RequestException;
-use DOMDocument;
 use Exception;
 use Symfony\Component\DomCrawler\Crawler;
 
