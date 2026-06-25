@@ -2,9 +2,6 @@
 
 declare(strict_types=1);
 
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
-
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Slim\Factory\AppFactory;
@@ -26,12 +23,11 @@ if (session_status() === PHP_SESSION_NONE) {
 
 $app = AppFactory::create();
 
-// Добавляем middleware для flash
+// Middleware для flash
 $app->add(function ($request, $handler) {
     $flash = new Messages();
     $request = $request->withAttribute('flash', $flash);
-    $response = $handler->handle($request);
-    return $response;
+    return $handler->handle($request);
 });
 
 $app->addErrorMiddleware(true, true, true);
@@ -117,9 +113,6 @@ $app->post('/urls', function (Request $request, Response $response) {
     $data = $request->getParsedBody();
     $url = trim($data['url'] ?? '');
     
-    error_log("=== POST /urls ===");
-    error_log("URL: " . $url);
-    
     $validator = new Validator(['url' => $url]);
     $validator->rule('required', 'url')->message('URL не должен быть пустым');
     $validator->rule('url', 'url')->message('Некорректный URL');
@@ -128,26 +121,17 @@ $app->post('/urls', function (Request $request, Response $response) {
     if (!$validator->validate()) {
         $errors = $validator->errors();
         $flash->addMessage('error', reset($errors['url']));
-        error_log("Validation failed: " . print_r($errors, true));
         return $response->withHeader('Location', '/')->withStatus(302);
     }
     
-    try {
-        $result = Url::save($url);
-        error_log("Save result: " . print_r($result, true));
-        
-        if ($result && isset($result['id'])) {
-            $flash->addMessage('success', 'Страница успешно добавлена');
-        } else {
-            $flash->addMessage('info', 'Страница уже существует');
-        }
-    } catch (Exception $e) {
-        error_log("Exception: " . $e->getMessage());
-        error_log("Trace: " . $e->getTraceAsString());
-        $flash->addMessage('error', 'Ошибка при сохранении URL: ' . $e->getMessage());
+    $result = Url::save($url);
+    
+    if ($result && isset($result['id'])) {
+        $flash->addMessage('success', 'Страница успешно добавлена');
+    } else {
+        $flash->addMessage('info', 'Страница уже существует');
     }
     
-    error_log("Redirecting to /urls");
     return $response->withHeader('Location', '/urls')->withStatus(302);
 });
 
