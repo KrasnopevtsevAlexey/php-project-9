@@ -41,11 +41,11 @@
     </nav>
 
     <main class="container">
-        <?php if (isset($flashMessages) && $flashMessages): ?>
+        <?php if (isset($flashMessages) && $flashMessages) : ?>
             <div class="alert alert-<?= $flashMessages['type'] === 'error' ? 'danger' : $flashMessages['type'] ?> alert-dismissible fade show" role="alert">
-                <?php if ($flashMessages['type'] === 'error'): ?>
+                <?php if ($flashMessages['type'] === 'error') : ?>
                     <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                <?php elseif ($flashMessages['type'] === 'success'): ?>
+                <?php elseif ($flashMessages['type'] === 'success') : ?>
                     <i class="bi bi-check-circle-fill me-2"></i>
                 <?php endif; ?>
                 <?= htmlspecialchars($flashMessages['message']) ?>

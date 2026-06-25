@@ -19,7 +19,7 @@
                         >
                         <button type="submit" class="btn btn-primary">Проверить</button>
                     </div>
-                    <?php if (isset($errors['url'])): ?>
+                    <?php if (isset($errors['url'])) : ?>
                         <div class="invalid-feedback d-block mt-2">
                             <?= htmlspecialchars($errors['url']) ?>
                         </div>
