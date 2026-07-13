@@ -12,9 +12,11 @@ class Connection
     {
         if (self::$connection === null) {
             $databaseUrl = getenv('DATABASE_URL');
+            $appEnv = getenv('APP_ENV');
 
-            if (!$databaseUrl) {
-                // Локально используем SQLite
+            // Если это тестовое окружение или нет DATABASE_URL - используем SQLite
+            if ($appEnv === 'test' || !$databaseUrl) {
+                // Локально или в тестах используем SQLite
                 $dbPath = __DIR__ . '/../database.sqlite';
                 self::$connection = new PDO("sqlite:{$dbPath}");
                 self::$connection->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -22,9 +24,8 @@ class Connection
                 self::$connection->exec('PRAGMA foreign_keys = ON;');
                 self::createTablesSQLite(self::$connection);
             } else {
-                // На Render/тесты используем PostgreSQL
+                // На Render/продакшен используем PostgreSQL
                 try {
-                    // Проверяем, доступен ли драйвер pdo_pgsql
                     if (!in_array('pgsql', PDO::getAvailableDrivers())) {
                         throw new \PDOException('PDO PostgreSQL driver not available');
                     }
