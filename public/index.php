@@ -16,14 +16,12 @@ use Symfony\Component\DomCrawler\Crawler;
 
 require __DIR__ . '/../vendor/autoload.php';
 
-// Инициализация сессии
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
 $app = AppFactory::create();
 
-// Middleware для flash
 $app->add(function ($request, $handler) {
     $flash = new Messages();
     $request = $request->withAttribute('flash', $flash);
@@ -63,7 +61,6 @@ function render($response, $templatePath, $layout, $contentTemplate, $data = [],
     return $response->withHeader('Content-Type', 'text/html');
 }
 
-// Главная страница
 $app->get('/', function (Request $request, Response $response) use ($templatePath) {
     $flash = $request->getAttribute('flash');
     return render(
@@ -76,7 +73,6 @@ $app->get('/', function (Request $request, Response $response) use ($templatePat
     );
 });
 
-// Список всех URL
 $app->get('/urls', function (Request $request, Response $response) use ($templatePath) {
     $flash = $request->getAttribute('flash');
     $urls = Url::findAll();
@@ -91,7 +87,6 @@ $app->get('/urls', function (Request $request, Response $response) use ($templat
     );
 });
 
-// Просмотр конкретного URL
 $app->get('/urls/{id}', function (Request $request, Response $response, $args) use ($templatePath) {
     $flash = $request->getAttribute('flash');
     $id = (int) $args['id'];
@@ -114,7 +109,6 @@ $app->get('/urls/{id}', function (Request $request, Response $response, $args) u
     );
 });
 
-// Добавление нового URL
 $app->post('/urls', function (Request $request, Response $response) {
     $flash = $request->getAttribute('flash');
     $data = $request->getParsedBody();
@@ -142,7 +136,6 @@ $app->post('/urls', function (Request $request, Response $response) {
     return $response->withHeader('Location', '/urls')->withStatus(302);
 });
 
-// Запуск проверки URL
 $app->post('/urls/{id}/checks', function (Request $request, Response $response, $args) {
     $flash = $request->getAttribute('flash');
     $id = (int) $args['id'];
@@ -157,7 +150,7 @@ $app->post('/urls/{id}/checks', function (Request $request, Response $response, 
         'allow_redirects' => true,
         'timeout' => 30,
         'connect_timeout' => 10,
-        'verify' => false
+        'verify' => false,
     ]);
 
     try {
@@ -189,7 +182,7 @@ $app->post('/urls/{id}/checks', function (Request $request, Response $response, 
             'status_code' => $statusCode,
             'h1' => $h1,
             'title' => $title,
-            'description' => $description
+            'description' => $description,
         ]);
 
         $flash->addMessage('success', 'Страница успешно проверена');
