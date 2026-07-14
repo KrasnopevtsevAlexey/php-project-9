@@ -14,10 +14,17 @@ class Connection
             $databaseUrl = getenv('DATABASE_URL');
             $appEnv = getenv('APP_ENV') ?: 'local';
 
+            error_log("=== Connection::get() ===");
+            error_log("APP_ENV: " . $appEnv);
+            error_log("DATABASE_URL: " . ($databaseUrl ? 'set' : 'not set'));
+            error_log("Available drivers: " . implode(', ', PDO::getAvailableDrivers()));
+
             // ВСЕГДА используем SQLite для тестов
             if ($appEnv === 'test' || !$databaseUrl || !in_array('pgsql', PDO::getAvailableDrivers())) {
+                error_log("Using SQLite");
                 self::$connection = self::createSQLiteConnection();
             } else {
+                error_log("Using PostgreSQL");
                 try {
                     self::$connection = new PDO($databaseUrl);
                     self::$connection->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -36,12 +43,15 @@ class Connection
     private static function createSQLiteConnection(): PDO
     {
         $dbPath = __DIR__ . '/../database.sqlite';
+        error_log("Creating SQLite connection to: " . $dbPath);
+
         $pdo = new PDO("sqlite:{$dbPath}");
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
         $pdo->exec('PRAGMA foreign_keys = ON;');
 
         // Создаём таблицы, если их нет
+        error_log("Creating tables if not exist...");
         $pdo->exec("
             CREATE TABLE IF NOT EXISTS urls (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -60,6 +70,10 @@ class Connection
                 FOREIGN KEY (url_id) REFERENCES urls(id) ON DELETE CASCADE
             );
         ");
+
+        // Проверяем, что таблицы создались
+        $tables = $pdo->query("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('urls', 'url_checks')")->fetchAll();
+        error_log("Tables created: " . print_r($tables, true));
 
         return $pdo;
     }
