@@ -14,24 +14,19 @@ class Connection
             $databaseUrl = getenv('DATABASE_URL');
             $appEnv = getenv('APP_ENV') ?: 'local';
 
-            // В тестовом окружении или без драйвера pgsql используем SQLite
-            $usePostgres = $databaseUrl && in_array('pgsql', PDO::getAvailableDrivers()) && $appEnv !== 'test';
-
-            if ($usePostgres) {
-                // Продакшен: PostgreSQL
+            // ВСЕГДА используем SQLite для тестов
+            if ($appEnv === 'test' || !$databaseUrl || !in_array('pgsql', PDO::getAvailableDrivers())) {
+                self::$connection = self::createSQLiteConnection();
+            } else {
                 try {
                     self::$connection = new PDO($databaseUrl);
                     self::$connection->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
                     self::$connection->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
                     self::createTablesPostgres(self::$connection);
                 } catch (PDOException $e) {
-                    error_log("PostgreSQL connection error: " . $e->getMessage());
-                    // Если PostgreSQL не работает, переключаемся на SQLite
+                    error_log("PostgreSQL error: " . $e->getMessage());
                     self::$connection = self::createSQLiteConnection();
                 }
-            } else {
-                // Тесты и локальная разработка: SQLite
-                self::$connection = self::createSQLiteConnection();
             }
         }
 
@@ -45,7 +40,27 @@ class Connection
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
         $pdo->exec('PRAGMA foreign_keys = ON;');
-        self::createTablesSQLite($pdo);
+
+        // Создаём таблицы, если их нет
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS urls (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name VARCHAR(255) NOT NULL UNIQUE,
+                created_at DATETIME NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS url_checks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                url_id INTEGER NOT NULL,
+                status_code INTEGER,
+                h1 TEXT,
+                title TEXT,
+                description TEXT,
+                created_at DATETIME NOT NULL,
+                FOREIGN KEY (url_id) REFERENCES urls(id) ON DELETE CASCADE
+            );
+        ");
+
         return $pdo;
     }
 
@@ -66,28 +81,6 @@ class Connection
                 title TEXT,
                 description TEXT,
                 created_at TIMESTAMP NOT NULL
-            );
-        ");
-    }
-
-    private static function createTablesSQLite(PDO $pdo): void
-    {
-        $pdo->exec("
-            CREATE TABLE IF NOT EXISTS urls (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name VARCHAR(255) NOT NULL UNIQUE,
-                created_at DATETIME NOT NULL
-            );
-
-            CREATE TABLE IF NOT EXISTS url_checks (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                url_id INTEGER NOT NULL,
-                status_code INTEGER,
-                h1 TEXT,
-                title TEXT,
-                description TEXT,
-                created_at DATETIME NOT NULL,
-                FOREIGN KEY (url_id) REFERENCES urls(id) ON DELETE CASCADE
             );
         ");
     }
