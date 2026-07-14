@@ -110,46 +110,30 @@ $app->get('/urls/{id}', function (Request $request, Response $response, $args) u
 });
 
 $app->post('/urls', function (Request $request, Response $response) {
-    error_log("=== POST /urls START ===");
-    
     $flash = $request->getAttribute('flash');
     $data = $request->getParsedBody();
     $url = trim($data['url'] ?? '');
-    
-    error_log("URL: " . $url);
-    
+
     $validator = new Validator(['url' => $url]);
     $validator->rule('required', 'url')->message('URL не должен быть пустым');
     $validator->rule('url', 'url')->message('Некорректный URL');
     $validator->rule('lengthMax', 'url', 255)->message('URL превышает 255 символов');
-    
+
     if (!$validator->validate()) {
         $errors = $validator->errors();
-        error_log("Validation failed: " . print_r($errors, true));
         $flash->addMessage('error', reset($errors['url']));
         return $response->withHeader('Location', '/')->withStatus(302);
     }
-    
-    try {
-        error_log("Saving URL...");
-        $result = Url::save($url);
-        error_log("Save result: " . print_r($result, true));
-        
-        if ($result && isset($result['id'])) {
-            $flash->addMessage('success', 'Страница успешно добавлена');
-            error_log("Success message added");
-        } else {
-            $flash->addMessage('info', 'Страница уже существует');
-            error_log("Info message added");
-        }
-    } catch (Exception $e) {
-        error_log("Exception: " . $e->getMessage());
-        error_log("Trace: " . $e->getTraceAsString());
-        $flash->addMessage('error', 'Ошибка при сохранении URL: ' . $e->getMessage());
+
+    $result = Url::save($url);
+
+    if ($result && isset($result['id'])) {
+        $flash->addMessage('success', 'Страница успешно добавлена');
+        return $response->withHeader('Location', '/urls/' . $result['id'])->withStatus(302);
+    } else {
+        $flash->addMessage('info', 'Страница уже существует');
+        return $response->withHeader('Location', '/urls')->withStatus(302);
     }
-    
-    error_log("=== POST /urls END ===");
-    return $response->withHeader('Location', '/urls')->withStatus(302);
 });
 
 $app->post('/urls/{id}/checks', function (Request $request, Response $response, $args) {
