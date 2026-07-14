@@ -15,7 +15,6 @@
                     <th>ID</th>
                     <th>Имя</th>
                     <th>Дата создания</th>
-                    <th>Последняя проверка</th>
                     <th>Код ответа</th>
                 </tr>
             </thead>
@@ -25,7 +24,6 @@
                     <td><?= htmlspecialchars($url['id']) ?></td>
                     <td><a href="/urls/<?= $url['id'] ?>"><?= htmlspecialchars($url['name']) ?></a></td>
                     <td><?= htmlspecialchars($url['created_at']) ?></td>
-                    <td><?= htmlspecialchars($url['last_check_date'] ?? '') ?></td>
                     <td><?= htmlspecialchars($url['last_status_code'] ?? '') ?></td>
                 </tr>
                 <?php endforeach; ?>
