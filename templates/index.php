@@ -1,11 +1,18 @@
 <div class="row justify-content-center">
-    <div class="col-md-10 col-lg-8">
+    <div class="col-md-8 col-lg-6">
         <div class="card shadow-sm bg-light">
             <div class="card-body p-5">
                 <div class="text-center mb-4">
                     <h1 class="display-5 mb-3">Анализатор страниц</h1>
                     <p class="lead text-muted">Бесплатная проверка SEO-параметров сайта</p>
                 </div>
+                
+                <?php if (isset($flashMessages) && $flashMessages) : ?>
+                    <div class="alert alert-<?= $flashMessages['type'] === 'error' ? 'danger' : $flashMessages['type'] ?> alert-dismissible fade show" role="alert">
+                        <?= htmlspecialchars($flashMessages['message']) ?>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                <?php endif; ?>
                 
                 <form action="/urls" method="post">
                     <div class="input-group input-group-lg">
@@ -19,7 +26,7 @@
                         >
                         <button type="submit" class="btn btn-primary">Проверить</button>
                     </div>
-                    <?php if (isset($errors['url'])) : ?>
+                    <?php if (isset($errors['url'])): ?>
                         <div class="invalid-feedback d-block mt-2">
                             <?= htmlspecialchars($errors['url']) ?>
                         </div>
