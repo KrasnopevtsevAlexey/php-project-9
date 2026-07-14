@@ -14,17 +14,16 @@ class Connection
             $databaseUrl = getenv('DATABASE_URL');
             $appEnv = getenv('APP_ENV');
 
-            // Если это тестовое окружение или нет DATABASE_URL - используем SQLite
+            // В тестовом окружении или без DATABASE_URL используем SQLite
             if ($appEnv === 'test' || !$databaseUrl) {
-                // Локально или в тестах используем SQLite
                 $dbPath = __DIR__ . '/../database.sqlite';
                 self::$connection = new PDO("sqlite:{$dbPath}");
                 self::$connection->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
                 self::$connection->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
                 self::$connection->exec('PRAGMA foreign_keys = ON;');
-                self::createTablesSQLite(self::$connection);
+                self::createTables(self::$connection);
             } else {
-                // На Render/продакшен используем PostgreSQL
+                // В продакшене используем PostgreSQL
                 try {
                     if (!in_array('pgsql', PDO::getAvailableDrivers())) {
                         throw new \PDOException('PDO PostgreSQL driver not available');
@@ -33,7 +32,7 @@ class Connection
                     self::$connection = new PDO($databaseUrl);
                     self::$connection->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
                     self::$connection->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
-                    self::createTablesPostgres(self::$connection);
+                    self::createTables(self::$connection);
                 } catch (PDOException $e) {
                     error_log("Connection error: " . $e->getMessage());
                     throw $e;
@@ -44,37 +43,22 @@ class Connection
         return self::$connection;
     }
 
-    private static function createTablesPostgres(PDO $pdo): void
+    private static function createTables(PDO $pdo): void
     {
-        $pdo->exec("
-            CREATE TABLE IF NOT EXISTS urls (
-                id SERIAL PRIMARY KEY,
-                name VARCHAR(255) NOT NULL UNIQUE,
-                created_at TIMESTAMP NOT NULL
-            );
+        // Проверяем, существует ли таблица urls
+        $stmt = $pdo->query("SELECT name FROM sqlite_master WHERE type='table' AND name='urls'");
+        if ($stmt->fetch()) {
+            return; // Таблицы уже существуют
+        }
 
-            CREATE TABLE IF NOT EXISTS url_checks (
-                id SERIAL PRIMARY KEY,
-                url_id INTEGER NOT NULL REFERENCES urls(id) ON DELETE CASCADE,
-                status_code INTEGER,
-                h1 TEXT,
-                title TEXT,
-                description TEXT,
-                created_at TIMESTAMP NOT NULL
-            );
-        ");
-    }
-
-    private static function createTablesSQLite(PDO $pdo): void
-    {
         $pdo->exec("
-            CREATE TABLE IF NOT EXISTS urls (
+            CREATE TABLE urls (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name VARCHAR(255) NOT NULL UNIQUE,
                 created_at DATETIME NOT NULL
             );
 
-            CREATE TABLE IF NOT EXISTS url_checks (
+            CREATE TABLE url_checks (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 url_id INTEGER NOT NULL,
                 status_code INTEGER,
