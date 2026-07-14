@@ -122,7 +122,7 @@ $app->post('/urls', function (Request $request, Response $response) {
     if (!$validator->validate()) {
         $errors = $validator->errors();
         $flash->addMessage('error', reset($errors['url']));
-        return $response->withHeader('Location', '/')->withStatus(302);
+        return $response->withHeader('Location', '/')->withStatus(422);
     }
 
     $result = Url::save($url);
