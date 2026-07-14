@@ -128,11 +128,15 @@ $app->post('/urls', function (Request $request, Response $response) {
     $result = Url::save($url);
 
     if ($result && isset($result['id'])) {
-        $flash->addMessage('success', 'Страница успешно добавлена');
+        if (isset($result['is_new']) && $result['is_new'] === true) {
+            $flash->addMessage('success', 'Страница успешно добавлена');
+        } else {
+            $flash->addMessage('info', 'Страница уже существует');
+        }
         return $response->withHeader('Location', '/urls/' . $result['id'])->withStatus(302);
     } else {
-        $flash->addMessage('info', 'Страница уже существует');
-        return $response->withHeader('Location', '/urls')->withStatus(302);
+        $flash->addMessage('error', 'Ошибка при сохранении URL');
+        return $response->withHeader('Location', '/')->withStatus(302);
     }
 });
 

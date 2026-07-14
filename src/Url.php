@@ -10,25 +10,26 @@ class Url
     public static function save(string $name): ?array
     {
         $pdo = Connection::get();
-        
+
         // Нормализация URL
         $parsed = parse_url($name);
-        
+
         if (!isset($parsed['scheme']) || !isset($parsed['host'])) {
             return null;
         }
-        
+
         $normalizedName = strtolower($parsed['scheme'] . '://' . $parsed['host']);
-        
+
         // Проверка на существование
         $stmt = $pdo->prepare('SELECT * FROM urls WHERE name = :name');
         $stmt->execute([':name' => $normalizedName]);
         $existing = $stmt->fetch();
-        
+
         if ($existing) {
-            return $existing;
+            // Возвращаем массив с флагом, что URL уже существовал
+            return array_merge($existing, ['is_new' => false]);
         }
-        
+
         // Сохранение нового URL
         $stmt = $pdo->prepare('INSERT INTO urls (name, created_at) VALUES (:name, :created_at)');
         $createdAt = Carbon::now()->toDateTimeString();
@@ -36,12 +37,12 @@ class Url
             ':name' => $normalizedName,
             ':created_at' => $createdAt
         ]);
-        
+
         $id = $pdo->lastInsertId();
-        
-        return self::findById($id);
+        $result = self::findById($id);
+        return $result ? array_merge($result, ['is_new' => true]) : null;
     }
-    
+
     public static function findById(int $id): ?array
     {
         $pdo = Connection::get();
@@ -49,7 +50,7 @@ class Url
         $stmt->execute([':id' => $id]);
         return $stmt->fetch() ?: null;
     }
-    
+
     public static function findAll(): array
     {
         $pdo = Connection::get();
