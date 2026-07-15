@@ -28,7 +28,6 @@ $templatePath = __DIR__ . '/../templates';
 function setFlash($type, $message)
 {
     $_SESSION['flash'] = ['type' => $type, 'message' => $message];
-    
 }
 
 function getFlash()
@@ -41,11 +40,8 @@ function getFlash()
 function render($response, $templatePath, $layout, $contentTemplate, $data = [])
 {
     extract($data);
-    
-    // Получаем flash-сообщение ДО рендеринга шаблона
     $flashMessages = getFlash();
-    
-    
+
     ob_start();
     require $contentTemplate;
     $content = ob_get_clean();

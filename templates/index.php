@@ -1,4 +1,3 @@
-<!-- DEBUG: flashMessages = <?= var_dump($flashMessages) ?> -->
 <div class="row justify-content-center">
     <div class="col-md-8 col-lg-6">
         <div class="card shadow-sm bg-light">
@@ -7,33 +6,33 @@
                     <h1 class="display-5 mb-3">Анализатор страниц</h1>
                     <p class="lead text-muted">Бесплатная проверка SEO-параметров сайта</p>
                 </div>
-                
+
                 <?php if (isset($flashMessages) && $flashMessages) : ?>
                     <div class="alert alert-<?= $flashMessages['type'] === 'error' ? 'danger' : $flashMessages['type'] ?> alert-dismissible fade show" role="alert">
                         <?= htmlspecialchars($flashMessages['message']) ?>
                         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                     </div>
                 <?php endif; ?>
-                
+
                 <form action="/urls" method="post">
                     <div class="input-group input-group-lg">
-                        <input 
-                            type="url" 
-                            name="url" 
-                            class="form-control <?= isset($errors['url']) ? 'is-invalid' : '' ?>" 
-                            placeholder="https://example.com" 
+                        <input
+                            type="url"
+                            name="url"
+                            class="form-control <?= isset($errors['url']) ? 'is-invalid' : '' ?>"
+                            placeholder="https://example.com"
                             value="<?= htmlspecialchars($url ?? '') ?>"
                             required
                         >
                         <button type="submit" class="btn btn-primary">Проверить</button>
                     </div>
-                    <?php if (isset($errors['url'])): ?>
+                    <?php if (isset($errors['url'])) : ?>
                         <div class="invalid-feedback d-block mt-2">
                             <?= htmlspecialchars($errors['url']) ?>
                         </div>
                     <?php endif; ?>
                 </form>
-                
+
                 <div class="text-center text-muted small mt-4">
                     <p>Введите URL для анализа заголовков, мета-тегов и других SEO-параметров</p>
                 </div>
