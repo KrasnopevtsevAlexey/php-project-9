@@ -191,13 +191,9 @@ $app->post('/urls/{id}/checks', function (Request $request, Response $response, 
 
         setFlash('success', 'Страница успешно проверена');
     } catch (RequestException $e) {
-        if ($e->hasResponse()) {
-            setFlash('error', 'Ошибка проверки: HTTP ' . $e->getResponse()->getStatusCode());
-        } else {
-            setFlash('error', 'Произошла ошибка при проверке: Не удалось подключиться к серверу');
-        }
+        setFlash('error', 'Произошла ошибка при проверке, не удалось подключиться');
     } catch (Exception $e) {
-        setFlash('error', 'Произошла ошибка при проверке');
+        setFlash('error', 'Произошла ошибка при проверке, не удалось подключиться');
     }
 
     return $response->withHeader('Location', '/urls/' . $id)->withStatus(302);
