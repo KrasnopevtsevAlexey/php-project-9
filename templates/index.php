@@ -1,3 +1,4 @@
+<!-- DEBUG: flashMessages = <?= var_dump($flashMessages) ?> -->
 <div class="row justify-content-center">
     <div class="col-md-8 col-lg-6">
         <div class="card shadow-sm bg-light">

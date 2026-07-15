@@ -29,6 +29,7 @@ $templatePath = __DIR__ . '/../templates';
 function setFlash($type, $message)
 {
     $_SESSION['flash'] = ['type' => $type, 'message' => $message];
+    error_log("Flash set: " . $type . " - " . $message);
 }
 
 function getFlash()
