@@ -101,7 +101,7 @@ $app->get('/urls/{id}', function (Request $request, Response $response, $args) u
     );
 });
 
-$app->post('/urls', function (Request $request, Response $response) {
+$app->post('/urls', function (Request $request, Response $response) use ($templatePath){
     $data = $request->getParsedBody();
     $url = trim($data['url'] ?? '');
 
@@ -110,12 +110,21 @@ $app->post('/urls', function (Request $request, Response $response) {
     $validator->rule('url', 'url')->message('Некорректный URL');
     $validator->rule('lengthMax', 'url', 255)->message('URL превышает 255 символов');
 
-    if (!$validator->validate()) {
-        $errors = $validator->errors();
-        $_SESSION['validation_errors'] = $errors;
-        $_SESSION['invalid_url'] = $url;
-        return $response->withHeader('Location', '/')->withStatus(422);
-    }
+   if (!$validator->validate()) {
+    $errors = $validator->errors();
+    
+    // Рендерим шаблон главной страницы напрямую с кодом 422
+    $response = render(
+        $response,
+        $templatePath,
+        $templatePath . '/layouts/main.php',
+        $templatePath . '/index.php',
+        ['url' => $url, 'errors' => $errors]
+    );
+    
+    return $response->withStatus(422);
+}
+
 
     $result = Url::save($url);
 
