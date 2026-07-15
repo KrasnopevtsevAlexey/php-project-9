@@ -58,6 +58,8 @@ $app->get('/', function (Request $request, Response $response) use ($templatePat
     $errors = $_SESSION['validation_errors'] ?? [];
     $url = $_SESSION['invalid_url'] ?? '';
     unset($_SESSION['validation_errors'], $_SESSION['invalid_url']);
+    
+    error_log("GET / - errors: " . print_r($errors, true));
 
     return render(
         $response,
@@ -113,6 +115,7 @@ $app->post('/urls', function (Request $request, Response $response) {
         $errors = $validator->errors();
         $_SESSION['validation_errors'] = $errors;
         $_SESSION['invalid_url'] = $url;
+        error_log("Validation errors: " . print_r($errors, true));
         return $response->withHeader('Location', '/')->withStatus(422);
     }
 
