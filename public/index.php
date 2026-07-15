@@ -5,7 +5,6 @@ declare(strict_types=1);
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Slim\Factory\AppFactory;
-use Slim\Flash\Messages;
 use Valitron\Validator;
 use App\Url;
 use App\Check;
@@ -21,37 +20,31 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 $app = AppFactory::create();
-
-$app->add(function ($request, $handler) {
-    $flash = new Messages();
-    $request = $request->withAttribute('flash', $flash);
-    return $handler->handle($request);
-});
-
 $app->addErrorMiddleware(true, true, true);
 $app->addBodyParsingMiddleware();
 
 $templatePath = __DIR__ . '/../templates';
 
-function render($response, $templatePath, $layout, $contentTemplate, $data = [], $flash = null)
+// Функция для работы с flash-сообщениями через сессию
+function setFlash($type, $message)
+{
+    $_SESSION['flash'] = ['type' => $type, 'message' => $message];
+}
+
+function getFlash()
+{
+    $flash = $_SESSION['flash'] ?? null;
+    unset($_SESSION['flash']);
+    return $flash;
+}
+
+function render($response, $templatePath, $layout, $contentTemplate, $data = [])
 {
     extract($data);
+    $flashMessages = getFlash();
     ob_start();
     require $contentTemplate;
     $content = ob_get_clean();
-
-    $flashMessages = null;
-    if ($flash) {
-        $messages = $flash->getMessages();
-        if (!empty($messages)) {
-            foreach ($messages as $type => $msgArray) {
-                if (!empty($msgArray)) {
-                    $flashMessages = ['type' => $type, 'message' => $msgArray[0]];
-                    break;
-                }
-            }
-        }
-    }
 
     ob_start();
     require $layout;
@@ -62,19 +55,16 @@ function render($response, $templatePath, $layout, $contentTemplate, $data = [],
 }
 
 $app->get('/', function (Request $request, Response $response) use ($templatePath) {
-    $flash = $request->getAttribute('flash');
     return render(
         $response,
         $templatePath,
         $templatePath . '/layouts/main.php',
         $templatePath . '/index.php',
-        ['url' => '', 'errors' => []],
-        $flash
+        ['url' => '', 'errors' => []]
     );
 });
 
 $app->get('/urls', function (Request $request, Response $response) use ($templatePath) {
-    $flash = $request->getAttribute('flash');
     $urls = Url::findAll();
 
     return render(
@@ -82,13 +72,11 @@ $app->get('/urls', function (Request $request, Response $response) use ($templat
         $templatePath,
         $templatePath . '/layouts/main.php',
         $templatePath . '/urls/index.php',
-        ['urls' => $urls],
-        $flash
+        ['urls' => $urls]
     );
 });
 
 $app->get('/urls/{id}', function (Request $request, Response $response, $args) use ($templatePath) {
-    $flash = $request->getAttribute('flash');
     $id = (int) $args['id'];
     $url = Url::findById($id);
 
@@ -104,13 +92,11 @@ $app->get('/urls/{id}', function (Request $request, Response $response, $args) u
         $templatePath,
         $templatePath . '/layouts/main.php',
         $templatePath . '/urls/show.php',
-        ['url' => $url, 'checks' => $checks],
-        $flash
+        ['url' => $url, 'checks' => $checks]
     );
 });
 
 $app->post('/urls', function (Request $request, Response $response) {
-    $flash = $request->getAttribute('flash');
     $data = $request->getParsedBody();
     $url = trim($data['url'] ?? '');
 
@@ -121,7 +107,7 @@ $app->post('/urls', function (Request $request, Response $response) {
 
     if (!$validator->validate()) {
         $errors = $validator->errors();
-        $flash->addMessage('error', reset($errors['url']));
+        setFlash('error', reset($errors['url']));
         return $response->withHeader('Location', '/')->withStatus(422);
     }
 
@@ -129,24 +115,23 @@ $app->post('/urls', function (Request $request, Response $response) {
 
     if ($result && isset($result['id'])) {
         if (isset($result['is_new']) && $result['is_new'] === true) {
-            $flash->addMessage('success', 'Страница успешно добавлена');
+            setFlash('success', 'Страница успешно добавлена');
         } else {
-            $flash->addMessage('info', 'Страница уже существует');
+            setFlash('info', 'Страница уже существует');
         }
         return $response->withHeader('Location', '/urls/' . $result['id'])->withStatus(302);
     } else {
-        $flash->addMessage('error', 'Ошибка при сохранении URL');
+        setFlash('error', 'Ошибка при сохранении URL');
         return $response->withHeader('Location', '/')->withStatus(302);
     }
 });
 
 $app->post('/urls/{id}/checks', function (Request $request, Response $response, $args) {
-    $flash = $request->getAttribute('flash');
     $id = (int) $args['id'];
     $url = Url::findById($id);
 
     if (!$url) {
-        $flash->addMessage('error', 'Страница не найдена');
+        setFlash('error', 'Страница не найдена');
         return $response->withHeader('Location', '/urls')->withStatus(302);
     }
 
@@ -189,15 +174,15 @@ $app->post('/urls/{id}/checks', function (Request $request, Response $response, 
             'description' => $description,
         ]);
 
-        $flash->addMessage('success', 'Страница успешно проверена');
+        setFlash('success', 'Страница успешно проверена');
     } catch (RequestException $e) {
         if ($e->hasResponse()) {
-            $flash->addMessage('error', 'Ошибка проверки: HTTP ' . $e->getResponse()->getStatusCode());
+            setFlash('error', 'Ошибка проверки: HTTP ' . $e->getResponse()->getStatusCode());
         } else {
-            $flash->addMessage('error', 'Произошла ошибка при проверке: Не удалось подключиться к серверу');
+            setFlash('error', 'Произошла ошибка при проверке: Не удалось подключиться к серверу');
         }
     } catch (Exception $e) {
-        $flash->addMessage('error', 'Произошла ошибка при проверке');
+        setFlash('error', 'Произошла ошибка при проверке');
     }
 
     return $response->withHeader('Location', '/urls/' . $id)->withStatus(302);
