@@ -28,16 +28,13 @@ $templatePath = __DIR__ . '/../templates';
 function setFlash($type, $message)
 {
     $_SESSION['flash'] = ['type' => $type, 'message' => $message];
-    error_log("Flash set: " . $type . " - " . $message);
+    
 }
 
 function getFlash()
 {
     $flash = $_SESSION['flash'] ?? null;
     unset($_SESSION['flash']);
-    if ($flash) {
-        error_log("Flash get: " . print_r($flash, true));
-    }
     return $flash;
 }
 
@@ -48,7 +45,6 @@ function render($response, $templatePath, $layout, $contentTemplate, $data = [])
     // Получаем flash-сообщение ДО рендеринга шаблона
     $flashMessages = getFlash();
     
-    error_log("Render: flashMessages = " . print_r($flashMessages, true));
     
     ob_start();
     require $contentTemplate;
