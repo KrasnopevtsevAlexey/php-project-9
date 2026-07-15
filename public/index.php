@@ -59,7 +59,7 @@ $app->get('/', function (Request $request, Response $response) use ($templatePat
     $errors = $_SESSION['validation_errors'] ?? [];
     $url = $_SESSION['invalid_url'] ?? '';
     unset($_SESSION['validation_errors'], $_SESSION['invalid_url']);
-
+    error_log("GET / - errors: " . print_r($errors, true));
     return render(
         $response,
         $templatePath,
