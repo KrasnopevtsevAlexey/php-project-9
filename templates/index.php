@@ -9,13 +9,7 @@
 
                 <?php if (isset($errors['url'])) : ?>
                     <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                        <?php
-                        if (is_array($errors['url'])) {
-                            echo htmlspecialchars($errors['url'][0]);
-                        } else {
-                            echo htmlspecialchars($errors['url']);
-                        }
-                        ?>
+                        <?= htmlspecialchars(is_array($errors['url']) ? $errors['url'][0] : $errors['url']) ?>
                         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                     </div>
                 <?php endif; ?>
