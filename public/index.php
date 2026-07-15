@@ -25,7 +25,6 @@ $app->addBodyParsingMiddleware();
 
 $templatePath = __DIR__ . '/../templates';
 
-// Функция для работы с flash-сообщениями через сессию
 function setFlash($type, $message)
 {
     $_SESSION['flash'] = ['type' => $type, 'message' => $message];
@@ -36,13 +35,21 @@ function getFlash()
 {
     $flash = $_SESSION['flash'] ?? null;
     unset($_SESSION['flash']);
+    if ($flash) {
+        error_log("Flash get: " . print_r($flash, true));
+    }
     return $flash;
 }
 
 function render($response, $templatePath, $layout, $contentTemplate, $data = [])
 {
     extract($data);
+    
+    // Получаем flash-сообщение ДО рендеринга шаблона
     $flashMessages = getFlash();
+    
+    error_log("Render: flashMessages = " . print_r($flashMessages, true));
+    
     ob_start();
     require $contentTemplate;
     $content = ob_get_clean();
