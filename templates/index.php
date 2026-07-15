@@ -7,13 +7,6 @@
                     <p class="lead text-muted">Бесплатная проверка SEO-параметров сайта</p>
                 </div>
 
-                <?php if (isset($flashMessages) && $flashMessages) : ?>
-                    <div class="alert alert-<?= $flashMessages['type'] === 'error' ? 'danger' : $flashMessages['type'] ?> alert-dismissible fade show" role="alert">
-                        <?= htmlspecialchars($flashMessages['message']) ?>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                    </div>
-                <?php endif; ?>
-
                 <form action="/urls" method="post">
                     <div class="input-group input-group-lg">
                         <input
