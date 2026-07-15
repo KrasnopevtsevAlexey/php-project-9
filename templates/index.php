@@ -1,5 +1,3 @@
-<!-- DEBUG errors: <?= var_dump($errors) ?> -->
-
 <div class="row justify-content-center">
     <div class="col-md-8 col-lg-6">
         <div class="card shadow-sm bg-light">
@@ -9,12 +7,19 @@
                     <p class="lead text-muted">Бесплатная проверка SEO-параметров сайта</p>
                 </div>
 
-                <?php if (isset($errors['url'])) : ?>
-                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                        <?= htmlspecialchars(is_array($errors['url']) ? $errors['url'][0] : $errors['url']) ?>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                    </div>
-                <?php endif; ?>
+                <?php
+                // Принудительный вывод ошибки
+                if (isset($errors['url'])) {
+                    echo '<div class="alert alert-danger alert-dismissible fade show" role="alert">';
+                    if (is_array($errors['url'])) {
+                        echo htmlspecialchars($errors['url'][0]);
+                    } else {
+                        echo htmlspecialchars($errors['url']);
+                    }
+                    echo '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>';
+                    echo '</div>';
+                }
+                ?>
 
                 <?php if (isset($flashMessages) && $flashMessages) : ?>
                     <div class="alert alert-<?= $flashMessages['type'] === 'error' ? 'danger' : $flashMessages['type'] ?> alert-dismissible fade show" role="alert">
