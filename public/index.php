@@ -55,10 +55,11 @@ function render($response, $templatePath, $layout, $contentTemplate, $data = [])
 }
 
 $app->get('/', function (Request $request, Response $response) use ($templatePath) {
+    // Получаем ошибки из сессии
     $errors = $_SESSION['validation_errors'] ?? [];
     $url = $_SESSION['invalid_url'] ?? '';
     unset($_SESSION['validation_errors'], $_SESSION['invalid_url']);
-    error_log("GET / - errors: " . print_r($errors, true));
+
     return render(
         $response,
         $templatePath,
