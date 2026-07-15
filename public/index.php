@@ -55,12 +55,17 @@ function render($response, $templatePath, $layout, $contentTemplate, $data = [])
 }
 
 $app->get('/', function (Request $request, Response $response) use ($templatePath) {
+    // Получаем ошибки из сессии, если есть
+    $errors = $_SESSION['validation_errors'] ?? [];
+    $url = $_SESSION['invalid_url'] ?? '';
+    unset($_SESSION['validation_errors'], $_SESSION['invalid_url']);
+    
     return render(
         $response,
         $templatePath,
         $templatePath . '/layouts/main.php',
         $templatePath . '/index.php',
-        ['url' => '', 'errors' => []]
+        ['url' => $url, 'errors' => $errors]
     );
 });
 
@@ -107,7 +112,8 @@ $app->post('/urls', function (Request $request, Response $response) {
 
     if (!$validator->validate()) {
         $errors = $validator->errors();
-        setFlash('error', reset($errors['url']));
+        $_SESSION['validation_errors'] = $errors;
+        $_SESSION['invalid_url'] = $url;
         return $response->withHeader('Location', '/')->withStatus(422);
     }
 

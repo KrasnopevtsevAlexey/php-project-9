@@ -7,6 +7,13 @@
                     <p class="lead text-muted">Бесплатная проверка SEO-параметров сайта</p>
                 </div>
 
+                <?php if (isset($errors['url'])) : ?>
+                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                        <?= htmlspecialchars($errors['url']) ?>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                <?php endif; ?>
+
                 <?php if (isset($flashMessages) && $flashMessages) : ?>
                     <div class="alert alert-<?= $flashMessages['type'] === 'error' ? 'danger' : $flashMessages['type'] ?> alert-dismissible fade show" role="alert">
                         <?= htmlspecialchars($flashMessages['message']) ?>
@@ -26,11 +33,6 @@
                         >
                         <button type="submit" class="btn btn-primary">Проверить</button>
                     </div>
-                    <?php if (isset($errors['url'])) : ?>
-                        <div class="invalid-feedback d-block mt-2">
-                            <?= htmlspecialchars($errors['url']) ?>
-                        </div>
-                    <?php endif; ?>
                 </form>
 
                 <div class="text-center text-muted small mt-4">
