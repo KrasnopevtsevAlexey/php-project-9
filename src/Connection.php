@@ -45,13 +45,18 @@ class Connection
         $dbPath = __DIR__ . '/../database.sqlite';
         error_log("Creating SQLite connection to: " . $dbPath);
 
+        // Проверяем, существует ли файл базы данных ДО открытия соединения
+        $isNewDatabase = !file_exists($dbPath);
+
         $pdo = new PDO("sqlite:{$dbPath}");
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
         $pdo->exec('PRAGMA foreign_keys = ON;');
 
-        // Инициализируем таблицы SQLite из того же файла database.sql с адаптацией диалекта
-        self::initDatabaseSchema($pdo, 'sqlite');
+        // Создаем таблицы из файла схемы ТОЛЬКО если это абсолютно новая БД
+        if ($isNewDatabase) {
+            self::initDatabaseSchema($pdo, 'sqlite');
+        }
 
         return $pdo;
     }
