@@ -23,54 +23,6 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// --- ЛЕГКОВЕСНАЯ ИНИЦИАЛИЗАЦИЯ БАЗЫ ДАННЫХ ПРИ СТАРТЕ ---
-try {
-    $pdo = \App\Connection::get();
-    // Сверхбыстрая проверка: если таблица существует, этот запрос выполнится успешно
-    $pdo->query("SELECT 1 FROM urls LIMIT 1");
-} catch (\PDOException $e) {
-    // Если таблицы нет, SQLite/PostgreSQL выбросит исключение, и мы создадим структуру
-    $driverName = $pdo->getAttribute(\PDO::ATTR_DRIVER_NAME);
-
-    if ($driverName === 'sqlite') {
-        $pdo->exec("
-            CREATE TABLE IF NOT EXISTS urls (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name VARCHAR(255) NOT NULL UNIQUE,
-                created_at DATETIME NOT NULL
-            );
-            CREATE TABLE IF NOT EXISTS url_checks (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                url_id INTEGER NOT NULL,
-                status_code INTEGER,
-                h1 VARCHAR(1000),
-                title VARCHAR(1000),
-                description VARCHAR(1000),
-                created_at DATETIME NOT NULL,
-                FOREIGN KEY (url_id) REFERENCES urls(id) ON DELETE CASCADE
-            );
-        ");
-    } else {
-        $pdo->exec("
-            CREATE TABLE IF NOT EXISTS urls (
-                id SERIAL PRIMARY KEY,
-                name VARCHAR(255) NOT NULL UNIQUE,
-                created_at TIMESTAMP NOT NULL
-            );
-            CREATE TABLE IF NOT EXISTS url_checks (
-                id SERIAL PRIMARY KEY,
-                url_id INTEGER NOT NULL REFERENCES urls(id) ON DELETE CASCADE,
-                status_code INTEGER,
-                h1 VARCHAR(1000),
-                title VARCHAR(1000),
-                description VARCHAR(1000),
-                created_at TIMESTAMP NOT NULL
-            );
-        ");
-    }
-}
-// --------------------------------------------------------
-
 $container = new Container();
 
 $container->set('flash', function () {
@@ -104,7 +56,13 @@ $errorMiddleware->setDefaultErrorHandler(
             $title = 'Страница не найдена';
             $message = 'Запрашиваемый вами адрес или страница не существуют на нашем сервисе.';
         } else {
-            error_log(sprintf(' Error [%d]: %s in %s:%d', $code, $exception->getMessage(), $exception->getFile(), $exception->getLine()));
+            error_log(sprintf(
+                ' Error [%d]: %s in %s:%d',
+                $code,
+                $exception->getMessage(),
+                $exception->getFile(),
+                $exception->getLine()
+            ));
         }
 
         return $renderer->render($response, 'error.php', [
@@ -117,14 +75,12 @@ $errorMiddleware->setDefaultErrorHandler(
     }
 );
 
-
 // Главная страница
 $app->get('/', function (Request $request, Response $response) {
     $routeParser = RouteContext::fromRequest($request)->getRouteParser();
     $renderer = $this->get('renderer');
     $flash = $this->get('flash');
 
-    // Получаем ранее сохраненный невалидный URL из флеш-данных пакета
     $invalidUrls = $flash->getMessage('invalid_url') ?? [];
     $url = array_shift($invalidUrls) ?? '';
 
@@ -196,7 +152,6 @@ $app->post('/urls', function (Request $request, Response $response) {
         $firstError = array_shift($errors['url']);
 
         $flash->addMessage('danger', $firstError);
-
         $flash->addMessage('invalid_url', $url);
 
         $response = $renderer->render($response, 'index.php', [
@@ -208,21 +163,22 @@ $app->post('/urls', function (Request $request, Response $response) {
         return $response->withStatus(422);
     }
 
-    $result = Url::save($url);
+    $parsed = parse_url($url);
+    $normalizedName = strtolower(($parsed['scheme'] ?? 'http') . '://' . ($parsed['host'] ?? ''));
 
-    if ($result && isset($result['id'])) {
-        if (isset($result['is_new']) && $result['is_new'] === true) {
-            $flash->addMessage('success', 'Страница успешно добавлена');
-        } else {
-            $flash->addMessage('info', 'Страница уже существует');
-        }
+    $existingUrl = Url::findByName($normalizedName);
 
-        $redirectUrl = $routeParser->urlFor('urls.show', ['id' => (string) $result['id']]);
+    if ($existingUrl) {
+        $flash->addMessage('info', 'Страница уже существует');
+        $redirectUrl = $routeParser->urlFor('urls.show', ['id' => (string) $existingUrl['id']]);
         return $response->withHeader('Location', $redirectUrl)->withStatus(302);
     }
 
-    $flash->addMessage('danger', 'Ошибка при сохранении URL');
-    $redirectUrl = $routeParser->urlFor('home');
+    $createdAt = \Carbon\Carbon::now()->toDateTimeString();
+    $newId = Url::save($normalizedName, $createdAt);
+
+    $flash->addMessage('success', 'Страница успешно добавлена');
+    $redirectUrl = $routeParser->urlFor('urls.show', ['id' => $newId]);
     return $response->withHeader('Location', $redirectUrl)->withStatus(302);
 })->setName('urls.store');
 
@@ -272,7 +228,6 @@ $app->post('/urls/{id:[0-9]+}/checks', function (Request $request, Response $res
             $description = trim($metaNode->attr('content') ?? '');
         }
 
-        // Выносим работу со временем и нормализацию пустых тегов в слой контроллера
         $createdAt = \Carbon\Carbon::now()->toDateTimeString();
 
         Check::save($id, [
@@ -285,19 +240,15 @@ $app->post('/urls/{id:[0-9]+}/checks', function (Request $request, Response $res
 
         $flash->addMessage('success', 'Страница успешно проверена');
     } catch (\GuzzleHttp\Exception\ConnectException $e) {
-        // Ловим ошибку сети, когда сайта вообще не существует или он недоступен
         $flash->addMessage('danger', 'Произошла ошибка при проверке, не удалось подключиться');
     } catch (\GuzzleHttp\Exception\RequestException $e) {
-        // Ловим ошибку, когда сервер ответил, но вернул плохой статус (404, 500 и т.д.)
         $flash->addMessage('danger', 'Произошла ошибка при проверке: сервер ответил с ошибкой');
     } catch (Exception $e) {
-        // Для всех остальных непредвиденных исключений
         $flash->addMessage('danger', 'Произошла непредвиденная ошибка при проверке');
     }
 
     $redirectUrl = $routeParser->urlFor('urls.show', ['id' => (string) $id]);
     return $response->withHeader('Location', $redirectUrl)->withStatus(302);
 })->setName('urls.checks.store');
-
 
 $app->run();
