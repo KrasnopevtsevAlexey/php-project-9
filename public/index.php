@@ -6,6 +6,7 @@ use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Slim\Factory\AppFactory;
 use Slim\Routing\RouteContext;
+use Slim\Exception\HttpNotFoundException;
 use Valitron\Validator;
 use App\Url;
 use App\Check;
@@ -21,7 +22,6 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 $app = AppFactory::create();
-$app->addErrorMiddleware(true, true, true);
 $app->addBodyParsingMiddleware();
 
 $templatePath = __DIR__ . '/../templates';
@@ -55,12 +55,45 @@ function render(Response $response, string $templatePath, string $layout, string
     return $response->withHeader('Content-Type', 'text/html');
 }
 
+// Настройка кастомного обработчика ошибок
+$errorMiddleware = $app->addErrorMiddleware(false, true, true);
+$errorMiddleware->setDefaultErrorHandler(
+    function (Request $request, Throwable $exception, bool $displayErrorDetails) use ($app, $templatePath) {
+        $response = $app->getResponseFactory()->createResponse();
+        $routeParser = RouteContext::fromRequest($request)->getRouteParser();
+
+        $code = 500;
+        $title = 'Внутренняя ошибка сервера';
+        $message = 'Произошла непредвиденная ошибка. Мы уже работаем над её исправлением.';
+
+        if ($exception instanceof HttpNotFoundException) {
+            $code = 404;
+            $title = 'Страница не найдена';
+            $message = 'Запрашиваемый вами адрес или страница не существуют на нашем сервисе.';
+        }
+
+        $response = render(
+            $response,
+            $templatePath,
+            $templatePath . '/layouts/main.php',
+            $templatePath . '/error.php',
+            [
+                'code' => $code,
+                'title' => $title,
+                'message' => $message,
+                'routeParser' => $routeParser
+            ]
+        );
+
+        return $response->withStatus($code);
+    }
+);
+
 // Главная страница
 $app->get('/', function (Request $request, Response $response) use ($templatePath) {
     $url = $_SESSION['invalid_url'] ?? '';
     unset($_SESSION['invalid_url']);
     
-    // Получаем routeParser для построения именованных ссылок в шаблонах
     $routeParser = RouteContext::fromRequest($request)->getRouteParser();
 
     return render(
@@ -93,7 +126,19 @@ $app->get('/urls/{id}', function (Request $request, Response $response, array $a
     $routeParser = RouteContext::fromRequest($request)->getRouteParser();
 
     if (!$url) {
-        $response->getBody()->write('Страница не найдена');
+        // Отрендерим подшаблон ошибки внутри основного макета для несуществующего ID
+        $response = render(
+            $response,
+            $templatePath,
+            $templatePath . '/layouts/main.php',
+            $templatePath . '/error.php',
+            [
+                'code' => 404,
+                'title' => 'Сайт не найден',
+                'message' => "Сайт с идентификатором ID {$id} отсутствует в базе данных.",
+                'routeParser' => $routeParser
+            ]
+        );
         return $response->withStatus(404);
     }
 
@@ -121,7 +166,6 @@ $app->post('/urls', function (Request $request, Response $response) use ($templa
 
     if (!$validator->validate()) {
         $errors = $validator->errors();
-        // Берем первую ошибку валидации и пишем ее в сессионный Flash
         $firstError = array_shift($errors['url']);
         setFlash('danger', $firstError);
         
@@ -144,8 +188,6 @@ $app->post('/urls', function (Request $request, Response $response) use ($templa
         } else {
             setFlash('info', 'Страница уже существует');
         }
-        
-        // Строим динамический URL по имени роута urls.show
         $redirectUrl = $routeParser->urlFor('urls.show', ['id' => (string) $result['id']]);
         return $response->withHeader('Location', $redirectUrl)->withStatus(302);
     }
