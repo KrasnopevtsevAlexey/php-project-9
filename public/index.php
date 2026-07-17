@@ -22,7 +22,6 @@ require __DIR__ . '/../vendor/autoload.php';
 $container = new Container();
 
 $container->set('flash', function () {
-    // Безопасный ленивый старт сессии только при активации компонента Flash
     if (session_status() === PHP_SESSION_NONE) {
         session_start();
     }
@@ -81,7 +80,6 @@ $app->get('/', function (Request $request, Response $response) {
     $renderer = $this->get('renderer');
     $flash = $this->get('flash');
 
-    // Безопасное чтение старых ошибок ввода
     if (session_status() === PHP_SESSION_NONE) {
         session_start();
     }

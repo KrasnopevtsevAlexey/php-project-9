@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Анализатор страниц</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://jsdelivr.net" rel="stylesheet">
     <link rel="stylesheet" href="https://jsdelivr.net">
     <style>
         body {
@@ -54,19 +54,21 @@
     </nav>
 
     <main class="container">
-        <?php if (!empty($flashMessages)) : ?>
+        <?php if (isset($flashMessages) && is_array($flashMessages)) : ?>
             <?php foreach ($flashMessages as $type => $messages) : ?>
-                <?php foreach ($messages as $message) : ?>
-                    <div class="alert alert-<?= $type === 'error' ? 'danger' : $type ?> alert-dismissible fade show" role="alert">
-                        <?php if ($type === 'error' || $type === 'danger') : ?>
-                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                        <?php elseif ($type === 'success') : ?>
-                            <i class="bi bi-check-circle-fill me-2"></i>
-                        <?php endif; ?>
-                        <?= htmlspecialchars($message) ?>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                    </div>
-                <?php endforeach; ?>
+                <?php if (is_array($messages)) : ?>
+                    <?php foreach ($messages as $message) : ?>
+                        <div class="alert alert-<?= $type === 'error' ? 'danger' : $type ?> alert-dismissible fade show" role="alert">
+                            <?php if ($type === 'error' || $type === 'danger') : ?>
+                                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                            <?php elseif ($type === 'success') : ?>
+                                <i class="bi bi-check-circle-fill me-2"></i>
+                            <?php endif; ?>
+                            <?= htmlspecialchars((string) $message) ?>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    <?php endforeach; ?>
+                <?php endif; ?>
             <?php endforeach; ?>
         <?php endif; ?>
 
@@ -76,4 +78,3 @@
     <script src="https://jsdelivr.net"></script>
 </body>
 </html>
-
