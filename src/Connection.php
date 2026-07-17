@@ -40,26 +40,27 @@ class Connection
         return self::$connection;
     }
 
-    private static function createSQLiteConnection(): PDO
+        private static function createSQLiteConnection(): PDO
     {
         $dbPath = __DIR__ . '/../database.sqlite';
         error_log("Creating SQLite connection to: " . $dbPath);
-
-        // Проверяем, существует ли файл базы данных ДО открытия соединения
-        $isNewDatabase = !file_exists($dbPath);
 
         $pdo = new PDO("sqlite:{$dbPath}");
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
         $pdo->exec('PRAGMA foreign_keys = ON;');
 
-        // Создаем таблицы из файла схемы ТОЛЬКО если это абсолютно новая БД
-        if ($isNewDatabase) {
+        // Проверяем, создана ли уже таблица urls в базе данных
+        try {
+            $pdo->query("SELECT 1 FROM urls LIMIT 1");
+        } catch (\PDOException $e) {
+            // Если таблицы не существует, SQLite выбросит исключение — значит, нужно накатить схему
             self::initDatabaseSchema($pdo, 'sqlite');
         }
 
         return $pdo;
     }
+
 
     private static function initDatabaseSchema(PDO $pdo, string $driver): void
     {
