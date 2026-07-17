@@ -3,40 +3,27 @@
 namespace App;
 
 use PDO;
-use Carbon\Carbon;
 
 class Url
 {
-    public static function save(string $name): ?array
+    public static function save(string $normalizedName, string $createdAt): string
     {
         $pdo = Connection::get();
-
-        $parsed = parse_url($name);
-
-        if (!isset($parsed['scheme']) || !isset($parsed['host'])) {
-            return null;
-        }
-
-        $normalizedName = strtolower($parsed['scheme'] . '://' . $parsed['host']);
-
-        $stmt = $pdo->prepare('SELECT * FROM urls WHERE name = :name');
-        $stmt->execute([':name' => $normalizedName]);
-        $existing = $stmt->fetch();
-
-        if ($existing) {
-            return array_merge($existing, ['is_new' => false]);
-        }
-
         $stmt = $pdo->prepare('INSERT INTO urls (name, created_at) VALUES (:name, :created_at)');
-        $createdAt = Carbon::now()->toDateTimeString();
         $stmt->execute([
             ':name' => $normalizedName,
             ':created_at' => $createdAt
         ]);
 
-        $id = $pdo->lastInsertId();
-        $result = self::findById($id);
-        return $result ? array_merge($result, ['is_new' => true]) : null;
+        return $pdo->lastInsertId();
+    }
+
+    public static function findByName(string $name): ?array
+    {
+        $pdo = Connection::get();
+        $stmt = $pdo->prepare('SELECT * FROM urls WHERE name = :name');
+        $stmt->execute([':name' => $name]);
+        return $stmt->fetch() ?: null;
     }
 
     public static function findById(int $id): ?array
@@ -50,22 +37,35 @@ class Url
     public static function findAll(): array
     {
         $pdo = Connection::get();
-        $stmt = $pdo->query('
-            SELECT
-                urls.*,
-                MAX(url_checks.created_at) as last_check_date,
-                (
-                    SELECT status_code
-                    FROM url_checks
-                    WHERE url_id = urls.id
-                    ORDER BY created_at DESC
-                    LIMIT 1
-                ) as last_status_code
-            FROM urls
-            LEFT JOIN url_checks ON urls.id = url_checks.url_id
-            GROUP BY urls.id
-            ORDER BY urls.created_at DESC
-        ');
-        return $stmt->fetchAll();
+
+        $stmt = $pdo->query('SELECT id, name, created_at FROM urls ORDER BY created_at DESC');
+        $urls = $stmt->fetchAll() ?: [];
+
+        if (empty($urls)) {
+            return [];
+        }
+
+        $urlIds = array_column($urls, 'id');
+        $placeholders = implode(',', array_fill(0, count($urlIds), '?'));
+
+        $checksStmt = $pdo->prepare("
+            SELECT url_id, status_code 
+            FROM url_checks 
+            WHERE id IN (
+                SELECT MAX(id) 
+                FROM url_checks 
+                WHERE url_id IN ($placeholders) 
+                GROUP BY url_id
+            )
+        ");
+
+        $checksStmt->execute($urlIds);
+        $latestChecks = $checksStmt->fetchAll() ?: [];
+        $checksMap = array_column($latestChecks, 'status_code', 'url_id');
+
+        return array_map(function ($url) use ($checksMap) {
+            $url['last_status_code'] = $checksMap[$url['id']] ?? null;
+            return $url;
+        }, $urls);
     }
 }

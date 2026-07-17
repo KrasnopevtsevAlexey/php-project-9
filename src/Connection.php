@@ -24,8 +24,10 @@ class Connection
                         self::$connection = new PDO($databaseUrl);
                         self::$connection->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
                         self::$connection->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
-                        self::createTablesPostgres(self::$connection);
-                    } catch (PDOException $e) {
+
+                        // Инициализируем таблицы PostgreSQL из файла database.sql
+                        self::initDatabaseSchema(self::$connection, 'pgsql');
+                    } catch (\PDOException $e) {
                         error_log("PostgreSQL error: " . $e->getMessage());
                         self::$connection = self::createSQLiteConnection();
                     }
@@ -48,46 +50,34 @@ class Connection
         $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
         $pdo->exec('PRAGMA foreign_keys = ON;');
 
-        $pdo->exec("
-            CREATE TABLE IF NOT EXISTS urls (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name VARCHAR(255) NOT NULL UNIQUE,
-                created_at DATETIME NOT NULL
-            );
-
-            CREATE TABLE IF NOT EXISTS url_checks (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                url_id INTEGER NOT NULL,
-                status_code INTEGER,
-                h1 TEXT,
-                title TEXT,
-                description TEXT,
-                created_at DATETIME NOT NULL,
-                FOREIGN KEY (url_id) REFERENCES urls(id) ON DELETE CASCADE
-            );
-        ");
+        // Инициализируем таблицы SQLite из того же файла database.sql с адаптацией диалекта
+        self::initDatabaseSchema($pdo, 'sqlite');
 
         return $pdo;
     }
 
-    private static function createTablesPostgres(PDO $pdo): void
+    private static function initDatabaseSchema(PDO $pdo, string $driver): void
     {
-        $pdo->exec("
-            CREATE TABLE IF NOT EXISTS urls (
-                id SERIAL PRIMARY KEY,
-                name VARCHAR(255) NOT NULL UNIQUE,
-                created_at TIMESTAMP NOT NULL
-            );
+        $sqlPath = __DIR__ . '/../database.sql';
 
-            CREATE TABLE IF NOT EXISTS url_checks (
-                id SERIAL PRIMARY KEY,
-                url_id INTEGER NOT NULL REFERENCES urls(id) ON DELETE CASCADE,
-                status_code INTEGER,
-                h1 TEXT,
-                title TEXT,
-                description TEXT,
-                created_at TIMESTAMP NOT NULL
-            );
-        ");
+        if (!file_exists($sqlPath)) {
+            return;
+        }
+
+        $sql = file_get_contents($sqlPath);
+        if ($sql === false) {
+            return;
+        }
+
+        if ($driver === 'sqlite') {
+            // Адаптируем синтаксис PostgreSQL под особенности SQLite на лету:
+            // 1. SERIAL PRIMARY KEY -> INTEGER PRIMARY KEY AUTOINCREMENT
+            $sql = preg_replace('/SERIAL\s+PRIMARY\s+KEY/i', 'INTEGER PRIMARY KEY AUTOINCREMENT', $sql);
+
+            // 2. Убираем неподдерживаемый в SQLite синтаксис каскадного удаления таблиц "CASCADE"
+            $sql = preg_replace('/DROP\s+TABLE\s+IF\s+EXISTS\s+([a-zA-Z_]+)\s+CASCADE/i', 'DROP TABLE IF EXISTS $1', $sql);
+        }
+
+        $pdo->exec($sql);
     }
 }

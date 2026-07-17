@@ -15,7 +15,6 @@ use App\Url;
 use App\Check;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\RequestException;
-use Exception;
 use Symfony\Component\DomCrawler\Crawler;
 
 require __DIR__ . '/../vendor/autoload.php';
@@ -24,7 +23,6 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Создаем DI-контейнер и регистрируем системные компоненты
 $container = new Container();
 
 $container->set('flash', function () {
@@ -41,7 +39,6 @@ AppFactory::setContainer($container);
 $app = AppFactory::create();
 $app->addBodyParsingMiddleware();
 
-// Кастомный обработчик ошибок
 $errorMiddleware = $app->addErrorMiddleware(false, true, true);
 $errorMiddleware->setDefaultErrorHandler(
     function (Request $request, Throwable $exception, bool $displayErrorDetails) use ($app) {
@@ -57,6 +54,8 @@ $errorMiddleware->setDefaultErrorHandler(
             $code = 404;
             $title = 'Страница не найдена';
             $message = 'Запрашиваемый вами адрес или страница не существуют на нашем сервисе.';
+        } else {
+            error_log(sprintf(' Error [%d]: %s in %s:%d', $code, $exception->getMessage(), $exception->getFile(), $exception->getLine()));
         }
 
         return $renderer->render($response, 'error.php', [
@@ -71,12 +70,13 @@ $errorMiddleware->setDefaultErrorHandler(
 
 // Главная страница
 $app->get('/', function (Request $request, Response $response) {
-    $url = $_SESSION['invalid_url'] ?? '';
-    unset($_SESSION['invalid_url']);
-
     $routeParser = RouteContext::fromRequest($request)->getRouteParser();
     $renderer = $this->get('renderer');
     $flash = $this->get('flash');
+
+    // Получаем ранее сохраненный невалидный URL из флеш-данных пакета
+    $invalidUrls = $flash->getMessage('invalid_url') ?? [];
+    $url = array_shift($invalidUrls) ?? '';
 
     return $renderer->render($response, 'index.php', [
         'url' => $url,
@@ -100,7 +100,7 @@ $app->get('/urls', function (Request $request, Response $response) {
 })->setName('urls.index');
 
 // Просмотр конкретного сайта
-$app->get('/urls/{id}', function (Request $request, Response $response, array $args) {
+$app->get('/urls/{id:[0-9]+}', function (Request $request, Response $response, array $args) {
     $id = (int) $args['id'];
     $url = Url::findById($id);
     $routeParser = RouteContext::fromRequest($request)->getRouteParser();
@@ -147,6 +147,8 @@ $app->post('/urls', function (Request $request, Response $response) {
 
         $flash->addMessage('danger', $firstError);
 
+        $flash->addMessage('invalid_url', $url);
+
         $response = $renderer->render($response, 'index.php', [
             'url' => $url,
             'routeParser' => $routeParser,
@@ -175,7 +177,7 @@ $app->post('/urls', function (Request $request, Response $response) {
 })->setName('urls.store');
 
 // Проверка сайта
-$app->post('/urls/{id}/checks', function (Request $request, Response $response, array $args) {
+$app->post('/urls/{id:[0-9]+}/checks', function (Request $request, Response $response, array $args) {
     $id = (int) $args['id'];
     $url = Url::findById($id);
 
@@ -220,20 +222,32 @@ $app->post('/urls/{id}/checks', function (Request $request, Response $response, 
             $description = trim($metaNode->attr('content') ?? '');
         }
 
+        // Выносим работу со временем и нормализацию пустых тегов в слой контроллера
+        $createdAt = \Carbon\Carbon::now()->toDateTimeString();
+
         Check::save($id, [
             'status_code' => $statusCode,
-            'h1' => $h1,
-            'title' => $title,
-            'description' => $description,
+            'h1' => !empty($h1) ? $h1 : null,
+            'title' => !empty($title) ? $title : null,
+            'description' => !empty($description) ? $description : null,
+            'created_at' => $createdAt
         ]);
 
         $flash->addMessage('success', 'Страница успешно проверена');
-    } catch (RequestException | Exception $e) {
+    } catch (\GuzzleHttp\Exception\ConnectException $e) {
+        // Ловим ошибку сети, когда сайта вообще не существует или он недоступен
         $flash->addMessage('danger', 'Произошла ошибка при проверке, не удалось подключиться');
+    } catch (\GuzzleHttp\Exception\RequestException $e) {
+        // Ловим ошибку, когда сервер ответил, но вернул плохой статус (404, 500 и т.д.)
+        $flash->addMessage('danger', 'Произошла ошибка при проверке: сервер ответил с ошибкой');
+    } catch (Exception $e) {
+        // Для всех остальных непредвиденных исключений
+        $flash->addMessage('danger', 'Произошла непредвиденная ошибка при проверке');
     }
 
     $redirectUrl = $routeParser->urlFor('urls.show', ['id' => (string) $id]);
     return $response->withHeader('Location', $redirectUrl)->withStatus(302);
 })->setName('urls.checks.store');
+
 
 $app->run();
