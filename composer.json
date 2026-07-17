@@ -26,7 +26,11 @@
         }
     },
     "scripts": {
-    "lint": "phpcs --standard=PSR12 --ignore=vendor/* --extensions=php --warning-severity=0 .",
-    "test": "phpunit tests/"
-}
+        "lint": "phpcs --standard=PSR12 --ignore=vendor/* --extensions=php --warning-severity=0 .",
+        "test": "phpunit tests/",
+        "db-init": "php init.php",
+        "post-install-cmd": [
+            "php init.php"
+        ]
+    }
 }
