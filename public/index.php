@@ -23,6 +23,54 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+// --- ЛЕГКОВЕСНАЯ ИНИЦИАЛИЗАЦИЯ БАЗЫ ДАННЫХ ПРИ СТАРТЕ ---
+try {
+    $pdo = \App\Connection::get();
+    // Сверхбыстрая проверка: если таблица существует, этот запрос выполнится успешно
+    $pdo->query("SELECT 1 FROM urls LIMIT 1");
+} catch (\PDOException $e) {
+    // Если таблицы нет, SQLite/PostgreSQL выбросит исключение, и мы создадим структуру
+    $driverName = $pdo->getAttribute(\PDO::ATTR_DRIVER_NAME);
+
+    if ($driverName === 'sqlite') {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS urls (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name VARCHAR(255) NOT NULL UNIQUE,
+                created_at DATETIME NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS url_checks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                url_id INTEGER NOT NULL,
+                status_code INTEGER,
+                h1 VARCHAR(1000),
+                title VARCHAR(1000),
+                description VARCHAR(1000),
+                created_at DATETIME NOT NULL,
+                FOREIGN KEY (url_id) REFERENCES urls(id) ON DELETE CASCADE
+            );
+        ");
+    } else {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS urls (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(255) NOT NULL UNIQUE,
+                created_at TIMESTAMP NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS url_checks (
+                id SERIAL PRIMARY KEY,
+                url_id INTEGER NOT NULL REFERENCES urls(id) ON DELETE CASCADE,
+                status_code INTEGER,
+                h1 VARCHAR(1000),
+                title VARCHAR(1000),
+                description VARCHAR(1000),
+                created_at TIMESTAMP NOT NULL
+            );
+        ");
+    }
+}
+// --------------------------------------------------------
+
 $container = new Container();
 
 $container->set('flash', function () {
@@ -34,7 +82,6 @@ $container->set('renderer', function () {
     $renderer->setLayout('layouts/main.php');
     return $renderer;
 });
-
 
 AppFactory::setContainer($container);
 $app = AppFactory::create();
