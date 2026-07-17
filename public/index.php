@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Slim\Factory\AppFactory;
+use Slim\Routing\RouteContext;
 use Valitron\Validator;
 use App\Url;
 use App\Check;
@@ -25,19 +26,19 @@ $app->addBodyParsingMiddleware();
 
 $templatePath = __DIR__ . '/../templates';
 
-function setFlash($type, $message)
+function setFlash(string $type, string $message): void
 {
     $_SESSION['flash'] = ['type' => $type, 'message' => $message];
 }
 
-function getFlash()
+function getFlash(): ?array
 {
     $flash = $_SESSION['flash'] ?? null;
     unset($_SESSION['flash']);
     return $flash;
 }
 
-function render($response, $templatePath, $layout, $contentTemplate, $data = [])
+function render(Response $response, string $templatePath, string $layout, string $contentTemplate, array $data = []): Response
 {
     extract($data);
     $flashMessages = getFlash();
@@ -54,36 +55,42 @@ function render($response, $templatePath, $layout, $contentTemplate, $data = [])
     return $response->withHeader('Content-Type', 'text/html');
 }
 
+// Главная страница
 $app->get('/', function (Request $request, Response $response) use ($templatePath) {
-    // Получаем ошибки из сессии
-    $errors = $_SESSION['validation_errors'] ?? [];
     $url = $_SESSION['invalid_url'] ?? '';
-    unset($_SESSION['validation_errors'], $_SESSION['invalid_url']);
-    error_log("GET / - errors: " . print_r($errors, true));
+    unset($_SESSION['invalid_url']);
+    
+    // Получаем routeParser для построения именованных ссылок в шаблонах
+    $routeParser = RouteContext::fromRequest($request)->getRouteParser();
+
     return render(
         $response,
         $templatePath,
         $templatePath . '/layouts/main.php',
         $templatePath . '/index.php',
-        ['url' => $url, 'errors' => $errors]
+        ['url' => $url, 'routeParser' => $routeParser]
     );
-});
+})->setName('home');
 
+// Список сайтов
 $app->get('/urls', function (Request $request, Response $response) use ($templatePath) {
     $urls = Url::findAll();
+    $routeParser = RouteContext::fromRequest($request)->getRouteParser();
 
     return render(
         $response,
         $templatePath,
         $templatePath . '/layouts/main.php',
         $templatePath . '/urls/index.php',
-        ['urls' => $urls]
+        ['urls' => $urls, 'routeParser' => $routeParser]
     );
-});
+})->setName('urls.index');
 
-$app->get('/urls/{id}', function (Request $request, Response $response, $args) use ($templatePath) {
+// Просмотр конкретного сайта
+$app->get('/urls/{id}', function (Request $request, Response $response, array $args) use ($templatePath) {
     $id = (int) $args['id'];
     $url = Url::findById($id);
+    $routeParser = RouteContext::fromRequest($request)->getRouteParser();
 
     if (!$url) {
         $response->getBody()->write('Страница не найдена');
@@ -97,13 +104,15 @@ $app->get('/urls/{id}', function (Request $request, Response $response, $args) u
         $templatePath,
         $templatePath . '/layouts/main.php',
         $templatePath . '/urls/show.php',
-        ['url' => $url, 'checks' => $checks]
+        ['url' => $url, 'checks' => $checks, 'routeParser' => $routeParser]
     );
-});
+})->setName('urls.show');
 
+// Добавление сайта
 $app->post('/urls', function (Request $request, Response $response) use ($templatePath) {
     $data = $request->getParsedBody();
     $url = trim($data['url'] ?? '');
+    $routeParser = RouteContext::fromRequest($request)->getRouteParser();
 
     $validator = new Validator(['url' => $url]);
     $validator->rule('required', 'url')->message('URL не должен быть пустым');
@@ -112,19 +121,20 @@ $app->post('/urls', function (Request $request, Response $response) use ($templa
 
     if (!$validator->validate()) {
         $errors = $validator->errors();
-
-     // Рендерим шаблон главной страницы напрямую с кодом 422
+        // Берем первую ошибку валидации и пишем ее в сессионный Flash
+        $firstError = array_shift($errors['url']);
+        setFlash('danger', $firstError);
+        
         $response = render(
             $response,
             $templatePath,
             $templatePath . '/layouts/main.php',
             $templatePath . '/index.php',
-            ['url' => $url, 'errors' => $errors]
+            ['url' => $url, 'routeParser' => $routeParser]
         );
 
         return $response->withStatus(422);
     }
-
 
     $result = Url::save($url);
 
@@ -134,20 +144,27 @@ $app->post('/urls', function (Request $request, Response $response) use ($templa
         } else {
             setFlash('info', 'Страница уже существует');
         }
-        return $response->withHeader('Location', '/urls/' . $result['id'])->withStatus(302);
-    } else {
-        setFlash('error', 'Ошибка при сохранении URL');
-        return $response->withHeader('Location', '/')->withStatus(302);
+        
+        // Строим динамический URL по имени роута urls.show
+        $redirectUrl = $routeParser->urlFor('urls.show', ['id' => (string) $result['id']]);
+        return $response->withHeader('Location', $redirectUrl)->withStatus(302);
     }
-});
 
-$app->post('/urls/{id}/checks', function (Request $request, Response $response, $args) {
+    setFlash('danger', 'Ошибка при сохранении URL');
+    $redirectUrl = $routeParser->urlFor('home');
+    return $response->withHeader('Location', $redirectUrl)->withStatus(302);
+})->setName('urls.store');
+
+// Проверка сайта
+$app->post('/urls/{id}/checks', function (Request $request, Response $response, array $args) {
     $id = (int) $args['id'];
     $url = Url::findById($id);
+    $routeParser = RouteContext::fromRequest($request)->getRouteParser();
 
     if (!$url) {
-        setFlash('error', 'Страница не найдена');
-        return $response->withHeader('Location', '/urls')->withStatus(302);
+        setFlash('danger', 'Страница не найдена');
+        $redirectUrl = $routeParser->urlFor('urls.index');
+        return $response->withHeader('Location', $redirectUrl)->withStatus(302);
     }
 
     $client = new Client([
@@ -190,13 +207,12 @@ $app->post('/urls/{id}/checks', function (Request $request, Response $response, 
         ]);
 
         setFlash('success', 'Страница успешно проверена');
-    } catch (RequestException $e) {
-        setFlash('error', 'Произошла ошибка при проверке, не удалось подключиться');
-    } catch (Exception $e) {
-        setFlash('error', 'Произошла ошибка при проверке, не удалось подключиться');
+    } catch (RequestException | Exception $e) {
+        setFlash('danger', 'Произошла ошибка при проверке, не удалось подключиться');
     }
 
-    return $response->withHeader('Location', '/urls/' . $id)->withStatus(302);
-});
+    $redirectUrl = $routeParser->urlFor('urls.show', ['id' => (string) $id]);
+    return $response->withHeader('Location', $redirectUrl)->withStatus(302);
+})->setName('urls.checks.store');
 
 $app->run();

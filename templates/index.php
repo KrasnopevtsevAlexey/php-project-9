@@ -7,26 +7,12 @@
                     <p class="lead text-muted">Бесплатная проверка SEO-параметров сайта</p>
                 </div>
 
-                <?php
-                // Принудительный вывод ошибки
-                if (isset($errors['url'])) {
-                    echo '<div class="alert alert-danger alert-dismissible fade show" role="alert">';
-                    if (is_array($errors['url'])) {
-                        echo htmlspecialchars($errors['url'][0]);
-                    } else {
-                        echo htmlspecialchars($errors['url']);
-                    }
-                    echo '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>';
-                    echo '</div>';
-                }
-                ?>
-
-                <form action="/urls" method="post">
+                <form action="<?= $routeParser->urlFor('urls.store') ?>" method="post">
                     <div class="input-group input-group-lg">
                         <input
                             type="url"
                             name="url"
-                            class="form-control <?= isset($errors['url']) ? 'is-invalid' : '' ?>"
+                            class="form-control"
                             placeholder="https://example.com"
                             value="<?= htmlspecialchars($url ?? '') ?>"
                             required

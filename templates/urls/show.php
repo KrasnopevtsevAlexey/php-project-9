@@ -1,5 +1,5 @@
 <?php
-function truncate($text, $length = 200)
+function truncate(?string $text, int $length = 200): string
 {
     if (empty($text)) {
         return '';
@@ -19,7 +19,7 @@ function truncate($text, $length = 200)
             <tbody>
                 <tr>
                     <th style="width: 200px">ID</th>
-                    <td><?= htmlspecialchars($url['id']) ?></td>
+                    <td><?= htmlspecialchars((string) $url['id']) ?></td>
                 </tr>
                 <tr>
                     <th>Имя</th>
@@ -34,7 +34,7 @@ function truncate($text, $length = 200)
 
         <h2 class="mt-5 mb-3">Проверки</h2>
 
-        <form action="/urls/<?= $url['id'] ?>/checks" method="post" class="mb-4">
+        <form action="<?= $routeParser->urlFor('urls.checks.store', ['id' => (string) $url['id']]) ?>" method="post" class="mb-4">
             <button type="submit" class="btn btn-primary">Запустить проверку</button>
         </form>
 
@@ -57,8 +57,8 @@ function truncate($text, $length = 200)
                 <?php else : ?>
                     <?php foreach ($checks as $check) : ?>
                     <tr>
-                        <td><?= htmlspecialchars($check['id'] ?? '') ?></td>
-                        <td><?= htmlspecialchars($check['status_code'] ?? '') ?></td>
+                        <td><?= htmlspecialchars((string) ($check['id'] ?? '')) ?></td>
+                        <td><?= htmlspecialchars((string) ($check['status_code'] ?? '')) ?></td>
                         <td><?= htmlspecialchars(truncate($check['h1'] ?? '')) ?></td>
                         <td><?= htmlspecialchars(truncate($check['title'] ?? '')) ?></td>
                         <td><?= htmlspecialchars(truncate($check['description'] ?? '')) ?></td>

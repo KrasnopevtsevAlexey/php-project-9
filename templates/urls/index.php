@@ -14,10 +14,14 @@
             <tbody>
                 <?php foreach ($urls as $url) : ?>
                 <tr>
-                    <td><?= htmlspecialchars($url['id']) ?></td>
-                    <td><a href="/urls/<?= $url['id'] ?>"><?= htmlspecialchars($url['name']) ?></a></td>
+                    <td><?= htmlspecialchars((string) $url['id']) ?></td>
+                    <td>
+                        <a href="<?= $routeParser->urlFor('urls.show', ['id' => (string) $url['id']]) ?>">
+                            <?= htmlspecialchars($url['name']) ?>
+                        </a>
+                    </td>
                     <td><?= htmlspecialchars($url['created_at']) ?></td>
-                    <td><?= htmlspecialchars($url['last_status_code'] ?? '') ?></td>
+                    <td><?= htmlspecialchars((string) ($url['last_status_code'] ?? '')) ?></td>
                 </tr>
                 <?php endforeach; ?>
             </tbody>
