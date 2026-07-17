@@ -40,7 +40,7 @@ class Connection
         return self::$connection;
     }
 
-        private static function createSQLiteConnection(): PDO
+    private static function createSQLiteConnection(): PDO
     {
         $dbPath = __DIR__ . '/../database.sqlite';
         error_log("Creating SQLite connection to: " . $dbPath);
