@@ -19,13 +19,13 @@ use Symfony\Component\DomCrawler\Crawler;
 
 require __DIR__ . '/../vendor/autoload.php';
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
 $container = new Container();
 
 $container->set('flash', function () {
+    // Безопасный ленивый старт сессии только при активации компонента Flash
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
     return new Messages();
 });
 
@@ -81,8 +81,12 @@ $app->get('/', function (Request $request, Response $response) {
     $renderer = $this->get('renderer');
     $flash = $this->get('flash');
 
-    $invalidUrls = $flash->getMessage('invalid_url') ?? [];
-    $url = array_shift($invalidUrls) ?? '';
+    // Безопасное чтение старых ошибок ввода
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+    $url = $_SESSION['invalid_url'] ?? '';
+    unset($_SESSION['invalid_url']);
 
     return $renderer->render($response, 'index.php', [
         'url' => $url,
@@ -152,7 +156,11 @@ $app->post('/urls', function (Request $request, Response $response) {
         $firstError = array_shift($errors['url']);
 
         $flash->addMessage('danger', $firstError);
-        $flash->addMessage('invalid_url', $url);
+
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        $_SESSION['invalid_url'] = $url;
 
         $response = $renderer->render($response, 'index.php', [
             'url' => $url,

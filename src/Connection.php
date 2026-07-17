@@ -14,7 +14,13 @@ class Connection
             $appEnv = getenv('APP_ENV') ?: 'local';
 
             if ($appEnv === 'test' || $appEnv === 'local') {
-                self::$connection = self::createSQLiteConnection();
+                $dbPath = __DIR__ . '/../database.sqlite';
+                self::$connection = new PDO("sqlite:{$dbPath}");
+                self::$connection->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+                self::$connection->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+                self::$connection->exec('PRAGMA foreign_keys = ON;');
+                // Включаем WAL-режим для предотвращения дедлоков при параллельных тестах
+                self::$connection->exec('PRAGMA journal_mode = WAL;');
             } else {
                 $databaseUrl = getenv('DATABASE_URL');
                 if ($databaseUrl && in_array('pgsql', PDO::getAvailableDrivers())) {
@@ -27,49 +33,17 @@ class Connection
                         self::initPostgresTables(self::$connection);
                     } catch (\PDOException $e) {
                         error_log("PostgreSQL error: " . $e->getMessage());
-                        self::$connection = self::createSQLiteConnection();
+
+                        $dbPath = __DIR__ . '/../database.sqlite';
+                        self::$connection = new PDO("sqlite:{$dbPath}");
+                        self::$connection->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+                        self::$connection->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
                     }
-                } else {
-                    self::$connection = self::createSQLiteConnection();
                 }
             }
         }
 
         return self::$connection;
-    }
-
-    private static function createSQLiteConnection(): PDO
-    {
-        $dbPath = __DIR__ . '/../database.sqlite';
-        $pdo = new PDO("sqlite:{$dbPath}");
-        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
-        $pdo->exec('PRAGMA foreign_keys = ON;');
-
-        // Проверяем существование таблиц без блокирующих file_get_contents
-        try {
-            $pdo->query("SELECT 1 FROM urls LIMIT 1");
-        } catch (\PDOException $e) {
-            $pdo->exec("
-                CREATE TABLE IF NOT EXISTS urls (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    name VARCHAR(255) NOT NULL UNIQUE,
-                    created_at DATETIME NOT NULL
-                );
-                CREATE TABLE IF NOT EXISTS url_checks (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    url_id INTEGER NOT NULL,
-                    status_code INTEGER,
-                    h1 VARCHAR(1000),
-                    title VARCHAR(1000),
-                    description VARCHAR(1000),
-                    created_at DATETIME NOT NULL,
-                    FOREIGN KEY (url_id) REFERENCES urls(id) ON DELETE CASCADE
-                );
-            ");
-        }
-
-        return $pdo;
     }
 
     private static function initPostgresTables(PDO $pdo): void
