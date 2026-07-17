@@ -7,6 +7,9 @@ use Psr\Http\Message\ServerRequestInterface as Request;
 use Slim\Factory\AppFactory;
 use Slim\Routing\RouteContext;
 use Slim\Exception\HttpNotFoundException;
+use Slim\Views\PhpRenderer;
+use Slim\Flash\Messages;
+use DI\Container;
 use Valitron\Validator;
 use App\Url;
 use App\Check;
@@ -21,46 +24,30 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+// Создаем DI-контейнер и регистрируем системные компоненты
+$container = new Container();
+
+$container->set('flash', function () {
+    return new Messages();
+});
+
+$container->set('renderer', function () {
+    $renderer = new PhpRenderer(__DIR__ . '/../templates');
+    $renderer->setLayout('layouts/main.php');
+    return $renderer;
+});
+
+AppFactory::setContainer($container);
 $app = AppFactory::create();
 $app->addBodyParsingMiddleware();
 
-$templatePath = __DIR__ . '/../templates';
-
-function setFlash(string $type, string $message): void
-{
-    $_SESSION['flash'] = ['type' => $type, 'message' => $message];
-}
-
-function getFlash(): ?array
-{
-    $flash = $_SESSION['flash'] ?? null;
-    unset($_SESSION['flash']);
-    return $flash;
-}
-
-function render(Response $response, string $templatePath, string $layout, string $contentTemplate, array $data = []): Response
-{
-    extract($data);
-    $flashMessages = getFlash();
-
-    ob_start();
-    require $contentTemplate;
-    $content = ob_get_clean();
-
-    ob_start();
-    require $layout;
-    $html = ob_get_clean();
-
-    $response->getBody()->write($html);
-    return $response->withHeader('Content-Type', 'text/html');
-}
-
-// Настройка кастомного обработчика ошибок
+// Кастомный обработчик ошибок
 $errorMiddleware = $app->addErrorMiddleware(false, true, true);
 $errorMiddleware->setDefaultErrorHandler(
-    function (Request $request, Throwable $exception, bool $displayErrorDetails) use ($app, $templatePath) {
+    function (Request $request, Throwable $exception, bool $displayErrorDetails) use ($app) {
         $response = $app->getResponseFactory()->createResponse();
         $routeParser = RouteContext::fromRequest($request)->getRouteParser();
+        $renderer = $app->getContainer()->get('renderer');
 
         $code = 500;
         $title = 'Внутренняя ошибка сервера';
@@ -72,92 +59,82 @@ $errorMiddleware->setDefaultErrorHandler(
             $message = 'Запрашиваемый вами адрес или страница не существуют на нашем сервисе.';
         }
 
-        $response = render(
-            $response,
-            $templatePath,
-            $templatePath . '/layouts/main.php',
-            $templatePath . '/error.php',
-            [
-                'code' => $code,
-                'title' => $title,
-                'message' => $message,
-                'routeParser' => $routeParser
-            ]
-        );
-
-        return $response->withStatus($code);
+        return $renderer->render($response, 'error.php', [
+            'code' => $code,
+            'title' => $title,
+            'message' => $message,
+            'routeParser' => $routeParser,
+            'flashMessages' => []
+        ])->withStatus($code);
     }
 );
 
 // Главная страница
-$app->get('/', function (Request $request, Response $response) use ($templatePath) {
+$app->get('/', function (Request $request, Response $response) {
     $url = $_SESSION['invalid_url'] ?? '';
     unset($_SESSION['invalid_url']);
-    
-    $routeParser = RouteContext::fromRequest($request)->getRouteParser();
 
-    return render(
-        $response,
-        $templatePath,
-        $templatePath . '/layouts/main.php',
-        $templatePath . '/index.php',
-        ['url' => $url, 'routeParser' => $routeParser]
-    );
+    $routeParser = RouteContext::fromRequest($request)->getRouteParser();
+    $renderer = $this->get('renderer');
+    $flash = $this->get('flash');
+
+    return $renderer->render($response, 'index.php', [
+        'url' => $url,
+        'routeParser' => $routeParser,
+        'flashMessages' => $flash->getMessages()
+    ]);
 })->setName('home');
 
 // Список сайтов
-$app->get('/urls', function (Request $request, Response $response) use ($templatePath) {
+$app->get('/urls', function (Request $request, Response $response) {
     $urls = Url::findAll();
     $routeParser = RouteContext::fromRequest($request)->getRouteParser();
+    $renderer = $this->get('renderer');
+    $flash = $this->get('flash');
 
-    return render(
-        $response,
-        $templatePath,
-        $templatePath . '/layouts/main.php',
-        $templatePath . '/urls/index.php',
-        ['urls' => $urls, 'routeParser' => $routeParser]
-    );
+    return $renderer->render($response, 'urls/index.php', [
+        'urls' => $urls,
+        'routeParser' => $routeParser,
+        'flashMessages' => $flash->getMessages()
+    ]);
 })->setName('urls.index');
 
 // Просмотр конкретного сайта
-$app->get('/urls/{id}', function (Request $request, Response $response, array $args) use ($templatePath) {
+$app->get('/urls/{id}', function (Request $request, Response $response, array $args) {
     $id = (int) $args['id'];
     $url = Url::findById($id);
     $routeParser = RouteContext::fromRequest($request)->getRouteParser();
+    $renderer = $this->get('renderer');
+    $flash = $this->get('flash');
 
     if (!$url) {
-        // Отрендерим подшаблон ошибки внутри основного макета для несуществующего ID
-        $response = render(
-            $response,
-            $templatePath,
-            $templatePath . '/layouts/main.php',
-            $templatePath . '/error.php',
-            [
-                'code' => 404,
-                'title' => 'Сайт не найден',
-                'message' => "Сайт с идентификатором ID {$id} отсутствует в базе данных.",
-                'routeParser' => $routeParser
-            ]
-        );
-        return $response->withStatus(404);
+        return $renderer->render($response, 'error.php', [
+            'code' => 404,
+            'title' => 'Сайт не найден',
+            'message' => "Сайт с идентификатором ID {$id} отсутствует в базе данных.",
+            'routeParser' => $routeParser,
+            'flashMessages' => []
+        ])->withStatus(404);
     }
 
     $checks = Check::findByUrlId($id);
 
-    return render(
-        $response,
-        $templatePath,
-        $templatePath . '/layouts/main.php',
-        $templatePath . '/urls/show.php',
-        ['url' => $url, 'checks' => $checks, 'routeParser' => $routeParser]
-    );
+    return $renderer->render($response, 'urls/show.php', [
+        'url' => $url,
+        'checks' => $checks,
+        'routeParser' => $routeParser,
+        'flashMessages' => $flash->getMessages()
+    ]);
 })->setName('urls.show');
 
 // Добавление сайта
-$app->post('/urls', function (Request $request, Response $response) use ($templatePath) {
+$app->post('/urls', function (Request $request, Response $response) {
     $data = $request->getParsedBody();
     $url = trim($data['url'] ?? '');
+
     $routeParser = RouteContext::fromRequest($request)->getRouteParser();
+    $renderer = $this->get('renderer');
+    $flash = $this->get('flash');
 
     $validator = new Validator(['url' => $url]);
     $validator->rule('required', 'url')->message('URL не должен быть пустым');
@@ -167,15 +144,14 @@ $app->post('/urls', function (Request $request, Response $response) use ($templa
     if (!$validator->validate()) {
         $errors = $validator->errors();
         $firstError = array_shift($errors['url']);
-        setFlash('danger', $firstError);
-        
-        $response = render(
-            $response,
-            $templatePath,
-            $templatePath . '/layouts/main.php',
-            $templatePath . '/index.php',
-            ['url' => $url, 'routeParser' => $routeParser]
-        );
+
+        $flash->addMessage('danger', $firstError);
+
+        $response = $renderer->render($response, 'index.php', [
+            'url' => $url,
+            'routeParser' => $routeParser,
+            'flashMessages' => $flash->getMessages()
+        ]);
 
         return $response->withStatus(422);
     }
@@ -184,15 +160,16 @@ $app->post('/urls', function (Request $request, Response $response) use ($templa
 
     if ($result && isset($result['id'])) {
         if (isset($result['is_new']) && $result['is_new'] === true) {
-            setFlash('success', 'Страница успешно добавлена');
+            $flash->addMessage('success', 'Страница успешно добавлена');
         } else {
-            setFlash('info', 'Страница уже существует');
+            $flash->addMessage('info', 'Страница уже существует');
         }
+
         $redirectUrl = $routeParser->urlFor('urls.show', ['id' => (string) $result['id']]);
         return $response->withHeader('Location', $redirectUrl)->withStatus(302);
     }
 
-    setFlash('danger', 'Ошибка при сохранении URL');
+    $flash->addMessage('danger', 'Ошибка при сохранении URL');
     $redirectUrl = $routeParser->urlFor('home');
     return $response->withHeader('Location', $redirectUrl)->withStatus(302);
 })->setName('urls.store');
@@ -201,10 +178,12 @@ $app->post('/urls', function (Request $request, Response $response) use ($templa
 $app->post('/urls/{id}/checks', function (Request $request, Response $response, array $args) {
     $id = (int) $args['id'];
     $url = Url::findById($id);
+
     $routeParser = RouteContext::fromRequest($request)->getRouteParser();
+    $flash = $this->get('flash');
 
     if (!$url) {
-        setFlash('danger', 'Страница не найдена');
+        $flash->addMessage('danger', 'Страница не найдена');
         $redirectUrl = $routeParser->urlFor('urls.index');
         return $response->withHeader('Location', $redirectUrl)->withStatus(302);
     }
@@ -248,9 +227,9 @@ $app->post('/urls/{id}/checks', function (Request $request, Response $response, 
             'description' => $description,
         ]);
 
-        setFlash('success', 'Страница успешно проверена');
+        $flash->addMessage('success', 'Страница успешно проверена');
     } catch (RequestException | Exception $e) {
-        setFlash('danger', 'Произошла ошибка при проверке, не удалось подключиться');
+        $flash->addMessage('danger', 'Произошла ошибка при проверке, не удалось подключиться');
     }
 
     $redirectUrl = $routeParser->urlFor('urls.show', ['id' => (string) $id]);
