@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Анализатор страниц</title>
-    <!-- Отключаем внешние CDN-запросы исключительно внутри контейнера тестов Хекслета -->
-    <?php if ((getenv('APP_ENV') ?: 'local') !== 'test') : ?>
+    <!-- Загружаем удалённые CDN только на живом сервере Render -->
+    <?php if (getenv('RENDER') === 'true') : ?>
         <link href="https://jsdelivr.net" rel="stylesheet">
         <link rel="stylesheet" href="https://jsdelivr.net">
     <?php endif; ?>
@@ -78,7 +78,7 @@
         <?= $content ?>
     </main>
 
-    <?php if ((getenv('APP_ENV') ?: 'local') !== 'test') : ?>
+    <?php if (getenv('RENDER') === 'true') : ?>
         <script src="https://jsdelivr.net"></script>
     <?php endif; ?>
 </body>
