@@ -19,6 +19,7 @@ use Symfony\Component\DomCrawler\Crawler;
 
 require __DIR__ . '/../vendor/autoload.php';
 
+// Фронт-контроллерный роутинг статики для встроенного PHP-сервера
 if (PHP_SAPI === 'cli-server') {
     $url = parse_url($_SERVER['REQUEST_URI']);
     $file = __DIR__ . ($url['path'] ?? '');
@@ -83,10 +84,11 @@ $errorMiddleware->setDefaultErrorHandler(
 );
 
 // Главная страница
-$app->get('/', function (Request $request, Response $response) {
+$app->get('/', function (Request $request, Response $response) use ($app) {
     $routeParser = RouteContext::fromRequest($request)->getRouteParser();
-    $renderer = $this->get('renderer');
-    $flash = $this->get('flash');
+    $container = $app->getContainer();
+    $renderer = $container->get('renderer');
+    $flash = $container->get('flash');
 
     if (session_status() === PHP_SESSION_NONE) {
         session_start();
@@ -102,11 +104,12 @@ $app->get('/', function (Request $request, Response $response) {
 })->setName('home');
 
 // Список сайтов
-$app->get('/urls', function (Request $request, Response $response) {
+$app->get('/urls', function (Request $request, Response $response) use ($app) {
     $urls = Url::findAll();
     $routeParser = RouteContext::fromRequest($request)->getRouteParser();
-    $renderer = $this->get('renderer');
-    $flash = $this->get('flash');
+    $container = $app->getContainer();
+    $renderer = $container->get('renderer');
+    $flash = $container->get('flash');
 
     return $renderer->render($response, 'urls/index.php', [
         'urls' => $urls,
@@ -116,12 +119,13 @@ $app->get('/urls', function (Request $request, Response $response) {
 })->setName('urls.index');
 
 // Просмотр конкретного сайта
-$app->get('/urls/{id:[0-9]+}', function (Request $request, Response $response, array $args) {
+$app->get('/urls/{id:[0-9]+}', function (Request $request, Response $response, array $args) use ($app) {
     $id = (int) $args['id'];
     $url = Url::findById($id);
     $routeParser = RouteContext::fromRequest($request)->getRouteParser();
-    $renderer = $this->get('renderer');
-    $flash = $this->get('flash');
+    $container = $app->getContainer();
+    $renderer = $container->get('renderer');
+    $flash = $container->get('flash');
 
     if (!$url) {
         return $renderer->render($response, 'error.php', [
@@ -144,13 +148,14 @@ $app->get('/urls/{id:[0-9]+}', function (Request $request, Response $response, a
 })->setName('urls.show');
 
 // Добавление сайта
-$app->post('/urls', function (Request $request, Response $response) {
+$app->post('/urls', function (Request $request, Response $response) use ($app) {
     $data = $request->getParsedBody();
     $url = trim($data['url'] ?? '');
 
     $routeParser = RouteContext::fromRequest($request)->getRouteParser();
-    $renderer = $this->get('renderer');
-    $flash = $this->get('flash');
+    $container = $app->getContainer();
+    $renderer = $container->get('renderer');
+    $flash = $container->get('flash');
 
     $validator = new Validator(['url' => $url]);
     $validator->rule('required', 'url')->message('URL не должен быть пустым');
@@ -162,7 +167,7 @@ $app->post('/urls', function (Request $request, Response $response) {
         $firstError = array_shift($errors['url']);
 
         $flash->addMessage('danger', $firstError);
-
+        
         if (session_status() === PHP_SESSION_NONE) {
             session_start();
         }
@@ -197,12 +202,13 @@ $app->post('/urls', function (Request $request, Response $response) {
 })->setName('urls.store');
 
 // Проверка сайта
-$app->post('/urls/{id:[0-9]+}/checks', function (Request $request, Response $response, array $args) {
+$app->post('/urls/{id:[0-9]+}/checks', function (Request $request, Response $response, array $args) use ($app) {
     $id = (int) $args['id'];
     $url = Url::findById($id);
 
     $routeParser = RouteContext::fromRequest($request)->getRouteParser();
-    $flash = $this->get('flash');
+    $container = $app->getContainer();
+    $flash = $container->get('flash');
 
     if (!$url) {
         $flash->addMessage('danger', 'Страница не найдена');
