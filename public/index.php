@@ -167,7 +167,7 @@ $app->post('/urls', function (Request $request, Response $response) use ($app) {
         $firstError = array_shift($errors['url']);
 
         $flash->addMessage('danger', $firstError);
-        
+
         if (session_status() === PHP_SESSION_NONE) {
             session_start();
         }
