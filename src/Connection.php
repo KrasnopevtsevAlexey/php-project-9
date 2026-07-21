@@ -1,17 +1,9 @@
 <?php
 
-namespace App;
-
-use PDO;
-
-class Connection
-{
-private static ?PDO $connection = null;
-
 public static function get(): PDO
 {
     if (self::$connection === null) {
-            $databaseUrl = getenv('DATABASE_URL');
+        $databaseUrl = getenv('DATABASE_URL');
 
         if ($databaseUrl && in_array('pgsql', PDO::getAvailableDrivers())) {
             try {
@@ -72,5 +64,5 @@ public static function get(): PDO
         }
     }
 
-           return self::$connection;
+    return self::$connection;
 }
