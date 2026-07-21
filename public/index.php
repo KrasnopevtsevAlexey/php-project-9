@@ -2,6 +2,22 @@
 
 declare(strict_types=1);
 
+// СТРОГО ПЕРВАЯ СТРОКА: Инициализируем сессию до загрузки зависимостей фреймворка
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+require __DIR__ . '/../vendor/autoload.php';
+
+// Фронт-контроллерный роутинг статики для встроенного PHP-сервера
+if (PHP_SAPI === 'cli-server') {
+    $url = parse_url($_SERVER['REQUEST_URI']);
+    $file = __DIR__ . ($url['path'] ?? '');
+    if (is_file($file)) {
+        return false;
+    }
+}
+
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Slim\Factory\AppFactory;
@@ -16,22 +32,6 @@ use App\Check;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\RequestException;
 use Symfony\Component\DomCrawler\Crawler;
-
-require __DIR__ . '/../vendor/autoload.php';
-
-// Фронт-контроллерный роутинг статики для встроенного PHP-сервера
-if (PHP_SAPI === 'cli-server') {
-    $url = parse_url($_SERVER['REQUEST_URI']);
-    $file = __DIR__ . ($url['path'] ?? '');
-    if (is_file($file)) {
-        return false;
-    }
-}
-
-// Гарантированный глобальный старт сессии для работы компонента Flash
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
 
 $container = new Container();
 
