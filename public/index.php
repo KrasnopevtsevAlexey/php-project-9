@@ -47,6 +47,19 @@ AppFactory::setContainer($container);
 $app = AppFactory::create();
 $app->addBodyParsingMiddleware();
 
+// MIDDLEWARE: Автоматически прокидывает flash-сообщения в шаблонизатор на каждый запрос
+$app->add(function (Request $request, $handler) use ($app) {
+    $container = $app->getContainer();
+    $flash = $container->get('flash');
+    $renderer = $container->get('renderer');
+
+    // Прописываем сообщения в глобальные атрибуты вьюшек
+    $renderer->addAttribute('flashMessages', $flash->getMessages() ?: []);
+
+    return $handler->handle($request);
+});
+
+// Кастомный обработчик ошибок
 $errorMiddleware = $app->addErrorMiddleware(false, true, true);
 $errorMiddleware->setDefaultErrorHandler(
     function (Request $request, Throwable $exception, bool $displayErrorDetails) use ($app) {
@@ -81,11 +94,7 @@ $errorMiddleware->setDefaultErrorHandler(
     }
 );
 
-// Глобально прокидываем объект приложения в контейнер для легкого доступа из вьюшек
-$container->set('app', function () use ($app) {
-    return $app;
-});
-
+// Главная страница
 $app->get('/', function (Request $request, Response $response) {
     $routeParser = RouteContext::fromRequest($request)->getRouteParser();
     $renderer = $this->get('renderer');
@@ -99,6 +108,7 @@ $app->get('/', function (Request $request, Response $response) {
     ]);
 })->setName('home');
 
+// Список сайтов
 $app->get('/urls', function (Request $request, Response $response) {
     $urls = Url::findAll();
     $routeParser = RouteContext::fromRequest($request)->getRouteParser();
@@ -110,6 +120,7 @@ $app->get('/urls', function (Request $request, Response $response) {
     ]);
 })->setName('urls.index');
 
+// Просмотр конкретного сайта
 $app->get('/urls/{id:[0-9]+}', function (Request $request, Response $response, array $args) {
     $id = (int) $args['id'];
     $url = Url::findById($id);
@@ -134,6 +145,7 @@ $app->get('/urls/{id:[0-9]+}', function (Request $request, Response $response, a
     ]);
 })->setName('urls.show');
 
+// Добавление сайта
 $app->post('/urls', function (Request $request, Response $response) {
     $data = $request->getParsedBody();
     $url = trim($data['url'] ?? '');
@@ -179,6 +191,7 @@ $app->post('/urls', function (Request $request, Response $response) {
     return $response->withHeader('Location', $redirectUrl)->withStatus(302);
 })->setName('urls.store');
 
+// Проверка сайта
 $app->post('/urls/{id:[0-9]+}/checks', function (Request $request, Response $response, array $args) {
     $id = (int) $args['id'];
     $url = Url::findById($id);

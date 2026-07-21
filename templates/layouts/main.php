@@ -4,8 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Анализатор страниц</title>
-    <!-- Загружаем удалённые CDN только на живом сервере Render -->
-    <?php if (getenv('RENDER') === 'true') : ?>
+    <?php if ((getenv('APP_ENV') ?: 'local') !== 'test') : ?>
         <link href="https://jsdelivr.net" rel="stylesheet">
         <link rel="stylesheet" href="https://jsdelivr.net">
     <?php endif; ?>
@@ -56,15 +55,7 @@
         </div>
     </nav>
 
-          <main class="container">
-        <?php
-            // Прямо на месте запрашиваем сообщения из контейнера Slim
-            global $app;
-            $flashMessages = [];
-        if (isset($app)) {
-            $flashMessages = $app->getContainer()->get('flash')->getMessages() ?: [];
-        }
-        ?>
+    <main class="container">
         <?php if (!empty($flashMessages) && is_array($flashMessages)) : ?>
             <?php foreach ($flashMessages as $type => $messages) : ?>
                 <?php if (is_array($messages)) : ?>
@@ -92,9 +83,8 @@
         <?= $content ?>
     </main>
 
-    <?php if (getenv('RENDER') === 'true') : ?>
+    <?php if ((getenv('APP_ENV') ?: 'local') !== 'test') : ?>
         <script src="https://jsdelivr.net"></script>
     <?php endif; ?>
 </body>
 </html>
-
