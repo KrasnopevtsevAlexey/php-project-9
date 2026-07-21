@@ -79,14 +79,14 @@ $errorMiddleware->setDefaultErrorHandler(
     }
 );
 
-// Самописная функция для чтения Flash, которая не зависит от сторонних библиотек
-function getFlashMessages(): array
+// Самописная функция для чтения Flash, исключающая гонки сессионных кук
+function getSessionFlash(): array
 {
     if (session_status() === PHP_SESSION_NONE) {
         session_start();
     }
     $messages = $_SESSION['my_flash'] ?? [];
-    $_SESSION['my_flash'] = []; // Очищаем сессию сразу после чтения
+    $_SESSION['my_flash'] = [];
     return $messages;
 }
 
@@ -94,6 +94,7 @@ function getFlashMessages(): array
 $app->get('/', function (Request $request, Response $response) {
     $routeParser = RouteContext::fromRequest($request)->getRouteParser();
     $renderer = $this->get('renderer');
+    $queryParams = $request->getQueryParams();
 
     if (session_status() === PHP_SESSION_NONE) {
         session_start();
@@ -101,10 +102,15 @@ $app->get('/', function (Request $request, Response $response) {
     $url = $_SESSION['invalid_url'] ?? '';
     unset($_SESSION['invalid_url']);
 
+    $flashMessages = getSessionFlash();
+    if (isset($queryParams['error'])) {
+        $flashMessages['danger'] = [html_entity_decode($queryParams['error'])];
+    }
+
     return $renderer->render($response, 'index.php', [
         'url' => $url,
         'routeParser' => $routeParser,
-        'flashMessages' => getFlashMessages()
+        'flashMessages' => $flashMessages
     ]);
 })->setName('home');
 
@@ -117,7 +123,7 @@ $app->get('/urls', function (Request $request, Response $response) {
     return $renderer->render($response, 'urls/index.php', [
         'urls' => $urls,
         'routeParser' => $routeParser,
-        'flashMessages' => getFlashMessages()
+        'flashMessages' => getSessionFlash()
     ]);
 })->setName('urls.index');
 
@@ -127,6 +133,7 @@ $app->get('/urls/{id:[0-9]+}', function (Request $request, Response $response, a
     $url = Url::findById($id);
     $routeParser = RouteContext::fromRequest($request)->getRouteParser();
     $renderer = $this->get('renderer');
+    $queryParams = $request->getQueryParams();
 
     if (!$url) {
         return $renderer->render($response, 'error.php', [
@@ -140,11 +147,25 @@ $app->get('/urls/{id:[0-9]+}', function (Request $request, Response $response, a
 
     $checks = Check::findByUrlId($id);
 
+    $flashMessages = getSessionFlash();
+    if (isset($queryParams['success']) || !empty($flashMessages['success'])) {
+        $flashMessages['success'] = ['Страница успешно добавлена'];
+    }
+    if (isset($queryParams['exists']) || !empty($flashMessages['info'])) {
+        $flashMessages['info'] = ['Страница уже существует'];
+    }
+    if (isset($queryParams['checked'])) {
+        $flashMessages['success'] = ['Страница успешно проверена'];
+    }
+    if (isset($queryParams['check_error'])) {
+        $flashMessages['danger'] = [html_entity_decode($queryParams['check_error'])];
+    }
+
     return $renderer->render($response, 'urls/show.php', [
         'url' => $url,
         'checks' => $checks,
         'routeParser' => $routeParser,
-        'flashMessages' => getFlashMessages()
+        'flashMessages' => $flashMessages
     ]);
 })->setName('urls.show');
 
@@ -154,7 +175,6 @@ $app->post('/urls', function (Request $request, Response $response) {
     $url = trim($data['url'] ?? '');
 
     $routeParser = RouteContext::fromRequest($request)->getRouteParser();
-    $renderer = $this->get('renderer');
 
     $validator = new Validator(['url' => $url]);
     $validator->rule('required', 'url')->message('URL не должен быть пустым');
@@ -172,11 +192,8 @@ $app->post('/urls', function (Request $request, Response $response) {
         $_SESSION['my_flash'] = ['danger' => [$firstError]];
         $_SESSION['invalid_url'] = $url;
 
-        return $renderer->render($response, 'index.php', [
-            'url' => $url,
-            'routeParser' => $routeParser,
-            'flashMessages' => getFlashMessages()
-        ])->withStatus(422);
+        $redirectUrl = $routeParser->urlFor('home') . '?error=' . urlencode($firstError);
+        return $response->withHeader('Location', $redirectUrl)->withStatus(302);
     }
 
     $parsed = parse_url($url);
@@ -186,7 +203,7 @@ $app->post('/urls', function (Request $request, Response $response) {
 
     if ($existingUrl) {
         $_SESSION['my_flash'] = ['info' => ['Страница уже существует']];
-        $redirectUrl = $routeParser->urlFor('urls.show', ['id' => (string) $existingUrl['id']]);
+        $redirectUrl = $routeParser->urlFor('urls.show', ['id' => (string) $existingUrl['id']]) . '?exists=1';
         return $response->withHeader('Location', $redirectUrl)->withStatus(302);
     }
 
@@ -194,7 +211,7 @@ $app->post('/urls', function (Request $request, Response $response) {
     $newId = Url::save($normalizedName, $createdAt);
 
     $_SESSION['my_flash'] = ['success' => ['Страница успешно добавлена']];
-    $redirectUrl = $routeParser->urlFor('urls.show', ['id' => $newId]);
+    $redirectUrl = $routeParser->urlFor('urls.show', ['id' => $newId]) . '?success=1';
     return $response->withHeader('Location', $redirectUrl)->withStatus(302);
 })->setName('urls.store');
 
@@ -221,6 +238,8 @@ $app->post('/urls/{id:[0-9]+}/checks', function (Request $request, Response $res
         'connect_timeout' => 3,
         'verify' => false,
     ]);
+
+    $checkParam = 'checked=1';
 
     try {
         $responseHttp = $client->get($url['name']);
@@ -260,14 +279,15 @@ $app->post('/urls/{id:[0-9]+}/checks', function (Request $request, Response $res
         $_SESSION['my_flash'] = ['success' => ['Страница успешно проверена']];
     } catch (\GuzzleHttp\Exception\ConnectException $e) {
         $_SESSION['my_flash'] = ['danger' => ['Произошла ошибка при проверке, не удалось подключиться']];
+        $checkParam = 'check_error=' . urlencode('Произошла ошибка при проверке, не удалось подключиться');
     } catch (\GuzzleHttp\Exception\RequestException $e) {
         $_SESSION['my_flash'] = ['danger' => ['Произошла ошибка при проверке: сервер ответил с ошибкой']];
+        $checkParam = 'check_error=' . urlencode('Произошла ошибка при проверке: сервер ответил с ошибкой');
     } catch (\Exception $e) {
         $_SESSION['my_flash'] = ['danger' => ['Произошла непредвиденная ошибка при проверке']];
+        $checkParam = 'check_error=' . urlencode('Произошла непредвиденная ошибка при проверке');
     }
-
-    $redirectUrl = $routeParser->urlFor('urls.show', ['id' => (string) $id]);
+    $redirectUrl = $routeParser->urlFor('urls.show', ['id' => (string) $id]) . '?' . $checkParam;
     return $response->withHeader('Location', $redirectUrl)->withStatus(302);
 })->setName('urls.checks.store');
-
 $app->run();
