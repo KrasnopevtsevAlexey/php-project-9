@@ -28,12 +28,14 @@ if (PHP_SAPI === 'cli-server') {
     }
 }
 
+// Гарантированный глобальный старт сессии для избежания дедлоков однопоточного сервера
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 $container = new Container();
 
 $container->set('flash', function () {
-    if (session_status() === PHP_SESSION_NONE) {
-        session_start();
-    }
     return new Messages();
 });
 
@@ -90,16 +92,13 @@ $app->get('/', function (Request $request, Response $response) use ($app) {
     $renderer = $container->get('renderer');
     $flash = $container->get('flash');
 
-    if (session_status() === PHP_SESSION_NONE) {
-        session_start();
-    }
     $url = $_SESSION['invalid_url'] ?? '';
     unset($_SESSION['invalid_url']);
 
     return $renderer->render($response, 'index.php', [
         'url' => $url,
         'routeParser' => $routeParser,
-        'flashMessages' => $flash->getMessages()
+        'flashMessages' => $flash->getMessages() ?: []
     ]);
 })->setName('home');
 
@@ -114,7 +113,7 @@ $app->get('/urls', function (Request $request, Response $response) use ($app) {
     return $renderer->render($response, 'urls/index.php', [
         'urls' => $urls,
         'routeParser' => $routeParser,
-        'flashMessages' => $flash->getMessages()
+        'flashMessages' => $flash->getMessages() ?: []
     ]);
 })->setName('urls.index');
 
@@ -143,7 +142,7 @@ $app->get('/urls/{id:[0-9]+}', function (Request $request, Response $response, a
         'url' => $url,
         'checks' => $checks,
         'routeParser' => $routeParser,
-        'flashMessages' => $flash->getMessages()
+        'flashMessages' => $flash->getMessages() ?: []
     ]);
 })->setName('urls.show');
 
@@ -167,16 +166,12 @@ $app->post('/urls', function (Request $request, Response $response) use ($app) {
         $firstError = array_shift($errors['url']);
 
         $flash->addMessage('danger', $firstError);
-
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
         $_SESSION['invalid_url'] = $url;
 
         $response = $renderer->render($response, 'index.php', [
             'url' => $url,
             'routeParser' => $routeParser,
-            'flashMessages' => $flash->getMessages()
+            'flashMessages' => $flash->getMessages() ?: []
         ]);
 
         return $response->withStatus(422);
