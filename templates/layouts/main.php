@@ -4,13 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Анализатор страниц</title>
-    
-    <!-- Полностью блокируем сетевые CDN-запросы, если тесты запущены на хосте Хекслета -->
-    <?php if (($requestHost = $_SERVER['HTTP_HOST'] ?? '') !== 'page-analyzer.test' && $requestHost !== 'localhost:8000') : ?>
-        <link href="https://jsdelivr.net" rel="stylesheet">
-        <link rel="stylesheet" href="https://jsdelivr.net">
-    <?php endif; ?>
-
+    <link href="https://jsdelivr.net" rel="stylesheet">
+    <link rel="stylesheet" href="https://jsdelivr.net">
     <style>
         body {
             background-color: #f0f2f5;
@@ -58,7 +53,7 @@
         </div>
     </nav>
 
-        <main class="container">
+    <main class="container">
         <?php if (!empty($flashMessages) && is_array($flashMessages)) : ?>
             <?php foreach ($flashMessages as $type => $messages) : ?>
                 <?php if (is_array($messages)) : ?>
@@ -86,8 +81,6 @@
         <?= $content ?>
     </main>
 
-    <?php if (($requestHost = $_SERVER['HTTP_HOST'] ?? '') !== 'page-analyzer.test' && $requestHost !== 'localhost:8000') : ?>
-        <script src="https://jsdelivr.net"></script>
-    <?php endif; ?>
+    <script src="https://jsdelivr.net"></script>
 </body>
 </html>
