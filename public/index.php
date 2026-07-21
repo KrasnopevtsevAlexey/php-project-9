@@ -2,12 +2,9 @@
 
 declare(strict_types=1);
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
 require __DIR__ . '/../vendor/autoload.php';
 
+// Фронт-контроллерный роутинг статики для встроенного PHP-сервера
 if (PHP_SAPI === 'cli-server') {
     $url = parse_url($_SERVER['REQUEST_URI']);
     $file = __DIR__ . ($url['path'] ?? '');
@@ -34,6 +31,9 @@ use Symfony\Component\DomCrawler\Crawler;
 $container = new Container();
 
 $container->set('flash', function () {
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
     return new Messages();
 });
 
@@ -41,8 +41,11 @@ $container->set('renderer', function ($c) {
     $renderer = new PhpRenderer(__DIR__ . '/../templates');
     $renderer->setLayout('layouts/main.php');
 
-    // Передаем ленивую функцию. Это заставит макет прочитать сессию в самый последний момент!
+    // Безопасный динамический вызов флеш-сообщений
     $renderer->addAttribute('getFlashMessages', function () use ($c) {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
         return $c->get('flash')->getMessages() ?: [];
     });
 
@@ -94,6 +97,9 @@ $app->get('/', function (Request $request, Response $response) use ($app) {
     $container = $app->getContainer();
     $renderer = $container->get('renderer');
 
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
     $url = $_SESSION['invalid_url'] ?? '';
     unset($_SESSION['invalid_url']);
 
@@ -162,6 +168,10 @@ $app->post('/urls', function (Request $request, Response $response) use ($app) {
         $firstError = array_shift($errors['url']);
 
         $flash->addMessage('danger', $firstError);
+
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
         $_SESSION['invalid_url'] = $url;
 
         return $renderer->render($response, 'index.php', [

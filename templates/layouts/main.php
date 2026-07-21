@@ -58,5 +58,6 @@
 
         <?= $content ?>
     </main>
+
 </body>
 </html>
