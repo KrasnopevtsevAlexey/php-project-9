@@ -73,7 +73,7 @@
                                 <i class="bi bi-check-circle-fill me-2"></i>
                             <?php endif; ?>
                             <?= htmlspecialchars((string) $message) ?>
-                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            <button type="button" class="btn-close" data-bs-toggle="alert" aria-label="Close"></button>
                         </div>
                     <?php endforeach; ?>
                 <?php endif; ?>

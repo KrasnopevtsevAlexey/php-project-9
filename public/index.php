@@ -47,18 +47,6 @@ AppFactory::setContainer($container);
 $app = AppFactory::create();
 $app->addBodyParsingMiddleware();
 
-// MIDDLEWARE: Автоматически прокидывает flash-сообщения в шаблонизатор на каждый запрос
-$app->add(function (Request $request, $handler) use ($app) {
-    $container = $app->getContainer();
-    $flash = $container->get('flash');
-    $renderer = $container->get('renderer');
-
-    // Прописываем сообщения в глобальные атрибуты вьюшек
-    $renderer->addAttribute('flashMessages', $flash->getMessages() ?: []);
-
-    return $handler->handle($request);
-});
-
 // Кастомный обработчик ошибок
 $errorMiddleware = $app->addErrorMiddleware(false, true, true);
 $errorMiddleware->setDefaultErrorHandler(
@@ -89,7 +77,8 @@ $errorMiddleware->setDefaultErrorHandler(
             'code' => $code,
             'title' => $title,
             'message' => $message,
-            'routeParser' => $routeParser
+            'routeParser' => $routeParser,
+            'flashMessages' => []
         ])->withStatus($code);
     }
 );
@@ -98,13 +87,15 @@ $errorMiddleware->setDefaultErrorHandler(
 $app->get('/', function (Request $request, Response $response) {
     $routeParser = RouteContext::fromRequest($request)->getRouteParser();
     $renderer = $this->get('renderer');
+    $flash = $this->get('flash');
 
     $url = $_SESSION['invalid_url'] ?? '';
     unset($_SESSION['invalid_url']);
 
     return $renderer->render($response, 'index.php', [
         'url' => $url,
-        'routeParser' => $routeParser
+        'routeParser' => $routeParser,
+        'flashMessages' => $flash->getMessages() ?: []
     ]);
 })->setName('home');
 
@@ -113,10 +104,12 @@ $app->get('/urls', function (Request $request, Response $response) {
     $urls = Url::findAll();
     $routeParser = RouteContext::fromRequest($request)->getRouteParser();
     $renderer = $this->get('renderer');
+    $flash = $this->get('flash');
 
     return $renderer->render($response, 'urls/index.php', [
         'urls' => $urls,
-        'routeParser' => $routeParser
+        'routeParser' => $routeParser,
+        'flashMessages' => $flash->getMessages() ?: []
     ]);
 })->setName('urls.index');
 
@@ -126,13 +119,15 @@ $app->get('/urls/{id:[0-9]+}', function (Request $request, Response $response, a
     $url = Url::findById($id);
     $routeParser = RouteContext::fromRequest($request)->getRouteParser();
     $renderer = $this->get('renderer');
+    $flash = $this->get('flash');
 
     if (!$url) {
         return $renderer->render($response, 'error.php', [
             'code' => 404,
             'title' => 'Сайт не найден',
             'message' => "Сайт с идентификатором ID {$id} отсутствует в базе данных.",
-            'routeParser' => $routeParser
+            'routeParser' => $routeParser,
+            'flashMessages' => []
         ])->withStatus(404);
     }
 
@@ -141,7 +136,8 @@ $app->get('/urls/{id:[0-9]+}', function (Request $request, Response $response, a
     return $renderer->render($response, 'urls/show.php', [
         'url' => $url,
         'checks' => $checks,
-        'routeParser' => $routeParser
+        'routeParser' => $routeParser,
+        'flashMessages' => $flash->getMessages() ?: []
     ]);
 })->setName('urls.show');
 
@@ -166,10 +162,13 @@ $app->post('/urls', function (Request $request, Response $response) {
         $flash->addMessage('danger', $firstError);
         $_SESSION['invalid_url'] = $url;
 
-        return $renderer->render($response, 'index.php', [
+        $response = $renderer->render($response, 'index.php', [
             'url' => $url,
-            'routeParser' => $routeParser
-        ])->withStatus(422);
+            'routeParser' => $routeParser,
+            'flashMessages' => $flash->getMessages() ?: []
+        ]);
+
+        return $response->withStatus(422);
     }
 
     $parsed = parse_url($url);
