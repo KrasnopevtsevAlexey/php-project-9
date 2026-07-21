@@ -58,9 +58,11 @@
 
           <main class="container">
         <?php
-            // Если передан хелпер-замыкание, вычисляем его для получения реального массива сообщений
-        if (isset($flashMessages) && $flashMessages instanceof \Closure) {
-            $flashMessages = $flashMessages();
+            // Прямо на месте запрашиваем сообщения из контейнера Slim
+            global $app;
+            $flashMessages = [];
+        if (isset($app)) {
+            $flashMessages = $app->getContainer()->get('flash')->getMessages() ?: [];
         }
         ?>
         <?php if (!empty($flashMessages) && is_array($flashMessages)) : ?>

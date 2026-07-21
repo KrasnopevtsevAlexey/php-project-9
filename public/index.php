@@ -2,14 +2,12 @@
 
 declare(strict_types=1);
 
-// СТРОГО ПЕРВАЯ СТРОКА: Инициализируем сессию до загрузки зависимостей фреймворка
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
 require __DIR__ . '/../vendor/autoload.php';
 
-// Фронт-контроллерный роутинг статики для встроенного PHP-сервера
 if (PHP_SAPI === 'cli-server') {
     $url = parse_url($_SERVER['REQUEST_URI']);
     $file = __DIR__ . ($url['path'] ?? '');
@@ -39,16 +37,9 @@ $container->set('flash', function () {
     return new Messages();
 });
 
-$container->set('renderer', function ($c) {
+$container->set('renderer', function () {
     $renderer = new PhpRenderer(__DIR__ . '/../templates');
     $renderer->setLayout('layouts/main.php');
-
-    // Передаем фабрику флеш-сообщений как замыкание.
-    // Это заставит макет прочитать сессию в самый последний момент рендеринга HTML!
-    $renderer->addAttribute('flashMessages', function () use ($c) {
-        return $c->get('flash')->getMessages() ?: [];
-    });
-
     return $renderer;
 });
 
@@ -56,7 +47,6 @@ AppFactory::setContainer($container);
 $app = AppFactory::create();
 $app->addBodyParsingMiddleware();
 
-// Кастомный обработчик ошибок
 $errorMiddleware = $app->addErrorMiddleware(false, true, true);
 $errorMiddleware->setDefaultErrorHandler(
     function (Request $request, Throwable $exception, bool $displayErrorDetails) use ($app) {
@@ -91,11 +81,14 @@ $errorMiddleware->setDefaultErrorHandler(
     }
 );
 
-// Главная страница
-$app->get('/', function (Request $request, Response $response) use ($app) {
+// Глобально прокидываем объект приложения в контейнер для легкого доступа из вьюшек
+$container->set('app', function () use ($app) {
+    return $app;
+});
+
+$app->get('/', function (Request $request, Response $response) {
     $routeParser = RouteContext::fromRequest($request)->getRouteParser();
-    $container = $app->getContainer();
-    $renderer = $container->get('renderer');
+    $renderer = $this->get('renderer');
 
     $url = $_SESSION['invalid_url'] ?? '';
     unset($_SESSION['invalid_url']);
@@ -106,12 +99,10 @@ $app->get('/', function (Request $request, Response $response) use ($app) {
     ]);
 })->setName('home');
 
-// Список сайтов
-$app->get('/urls', function (Request $request, Response $response) use ($app) {
+$app->get('/urls', function (Request $request, Response $response) {
     $urls = Url::findAll();
     $routeParser = RouteContext::fromRequest($request)->getRouteParser();
-    $container = $app->getContainer();
-    $renderer = $container->get('renderer');
+    $renderer = $this->get('renderer');
 
     return $renderer->render($response, 'urls/index.php', [
         'urls' => $urls,
@@ -119,13 +110,11 @@ $app->get('/urls', function (Request $request, Response $response) use ($app) {
     ]);
 })->setName('urls.index');
 
-// Просмотр конкретного сайта
-$app->get('/urls/{id:[0-9]+}', function (Request $request, Response $response, array $args) use ($app) {
+$app->get('/urls/{id:[0-9]+}', function (Request $request, Response $response, array $args) {
     $id = (int) $args['id'];
     $url = Url::findById($id);
     $routeParser = RouteContext::fromRequest($request)->getRouteParser();
-    $container = $app->getContainer();
-    $renderer = $container->get('renderer');
+    $renderer = $this->get('renderer');
 
     if (!$url) {
         return $renderer->render($response, 'error.php', [
@@ -145,15 +134,13 @@ $app->get('/urls/{id:[0-9]+}', function (Request $request, Response $response, a
     ]);
 })->setName('urls.show');
 
-// Добавление сайта
-$app->post('/urls', function (Request $request, Response $response) use ($app) {
+$app->post('/urls', function (Request $request, Response $response) {
     $data = $request->getParsedBody();
     $url = trim($data['url'] ?? '');
 
     $routeParser = RouteContext::fromRequest($request)->getRouteParser();
-    $container = $app->getContainer();
-    $renderer = $container->get('renderer');
-    $flash = $container->get('flash');
+    $renderer = $this->get('renderer');
+    $flash = $this->get('flash');
 
     $validator = new Validator(['url' => $url]);
     $validator->rule('required', 'url')->message('URL не должен быть пустым');
@@ -167,12 +154,10 @@ $app->post('/urls', function (Request $request, Response $response) use ($app) {
         $flash->addMessage('danger', $firstError);
         $_SESSION['invalid_url'] = $url;
 
-        $response = $renderer->render($response, 'index.php', [
+        return $renderer->render($response, 'index.php', [
             'url' => $url,
             'routeParser' => $routeParser
-        ]);
-
-        return $response->withStatus(422);
+        ])->withStatus(422);
     }
 
     $parsed = parse_url($url);
@@ -194,14 +179,12 @@ $app->post('/urls', function (Request $request, Response $response) use ($app) {
     return $response->withHeader('Location', $redirectUrl)->withStatus(302);
 })->setName('urls.store');
 
-// Проверка сайта
-$app->post('/urls/{id:[0-9]+}/checks', function (Request $request, Response $response, array $args) use ($app) {
+$app->post('/urls/{id:[0-9]+}/checks', function (Request $request, Response $response, array $args) {
     $id = (int) $args['id'];
     $url = Url::findById($id);
 
     $routeParser = RouteContext::fromRequest($request)->getRouteParser();
-    $container = $app->getContainer();
-    $flash = $container->get('flash');
+    $flash = $this->get('flash');
 
     if (!$url) {
         $flash->addMessage('danger', 'Страница не найдена');
