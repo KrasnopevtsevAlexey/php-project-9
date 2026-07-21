@@ -2,12 +2,14 @@
 
 declare(strict_types=1);
 
+// СТРОГО ПЕРВАЯ СТРОКА: Инициализируем сессию до загрузки зависимостей фреймворка
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
 require __DIR__ . '/../vendor/autoload.php';
 
+// Фронт-контроллерный роутинг статики для встроенного PHP-сервера
 if (PHP_SAPI === 'cli-server') {
     $url = parse_url($_SERVER['REQUEST_URI']);
     $file = __DIR__ . ($url['path'] ?? '');
@@ -47,7 +49,7 @@ AppFactory::setContainer($container);
 $app = AppFactory::create();
 $app->addBodyParsingMiddleware();
 
-// MIDDLEWARE: Перехватывает flash-сообщения перед рендерингом для предотвращения их потери
+// MIDDLEWARE: Исправлено — добавлен return. Прокидывает сообщения flash на каждый запрос.
 $app->add(function (Request $request, $handler) use ($app) {
     $container = $app->getContainer();
     $flash = $container->get('flash');
@@ -63,7 +65,9 @@ $errorMiddleware = $app->addErrorMiddleware(false, true, true);
 $errorMiddleware->setDefaultErrorHandler(
     function (Request $request, Throwable $exception, bool $displayErrorDetails) use ($app) {
         $response = $app->getResponseFactory()->createResponse();
-        $routeParser = RouteContext::fromRequest($request)->getRouteParser();
+
+        // БЕЗОПАСНО: Получаем роутер напрямую из приложения, а не из контекста запроса
+        $routeParser = $app->getRouteCollector()->getRouteParser();
         $renderer = $app->getContainer()->get('renderer');
 
         $code = 500;
@@ -192,12 +196,14 @@ $app->post('/urls', function (Request $request, Response $response) {
 })->setName('urls.store');
 
 // Проверка сайта
-$app->post('/urls/{id:[0-9]+}/checks', function (Request $request, Response $response, array $args) {
+$app->post('/urls/{id:[0-9]+}/checks', function (Request $request, Response $response, array $args) use ($app) {
     $id = (int) $args['id'];
     $url = Url::findById($id);
 
-    $routeParser = RouteContext::fromRequest($request)->getRouteParser();
-    $flash = $this->get('flash');
+    // БЕЗОПАСНО: Получаем роутер и флеш напрямую из контейнера приложения, избегая дедлоков RouteContext
+    $container = $app->getContainer();
+    $routeParser = $app->getRouteCollector()->getRouteParser();
+    $flash = $container->get('flash');
 
     if (!$url) {
         $flash->addMessage('danger', 'Страница не найдена');
@@ -205,10 +211,11 @@ $app->post('/urls/{id:[0-9]+}/checks', function (Request $request, Response $res
         return $response->withHeader('Location', $redirectUrl)->withStatus(302);
     }
 
+    // Задаем жесткие, быстрые лимиты, чтобы локальная сеть WSL 2 не вешала сервер
     $client = new Client([
         'allow_redirects' => true,
-        'timeout' => 30,
-        'connect_timeout' => 10,
+        'timeout' => 5,
+        'connect_timeout' => 3,
         'verify' => false,
     ]);
 
@@ -252,7 +259,7 @@ $app->post('/urls/{id:[0-9]+}/checks', function (Request $request, Response $res
         $flash->addMessage('danger', 'Произошла ошибка при проверке, не удалось подключиться');
     } catch (\GuzzleHttp\Exception\RequestException $e) {
         $flash->addMessage('danger', 'Произошла ошибка при проверке: сервер ответил с ошибкой');
-    } catch (Exception $e) {
+    } catch (\Exception $e) {
         $flash->addMessage('danger', 'Произошла непредвиденная ошибка при проверке');
     }
 

@@ -1,5 +1,4 @@
 <?php
-<  ? php
 if (!function_exists('truncate')) {
     function truncate(?string $text, int $length = 200): string
     {
@@ -53,22 +52,20 @@ if (!function_exists('truncate')) {
                 </tr>
             </thead>
             <tbody>
-                <?php if (empty($checks)) {
-                    : ;
-                } ?>
-                <tr>
-                    <td colspan="6" class="text-center">Проверок пока нет</td>
-                </tr>
+                <?php if (empty($checks)) : ?>
+                    <tr>
+                        <td colspan="6" class="text-center">Проверок пока нет</td>
+                    </tr>
                 <?php else : ?>
                     <?php foreach ($checks as $check) : ?>
-                    <tr>
-                        <td><?= htmlspecialchars((string) ($check['id'] ?? '')) ?></td>
-                        <td><?= htmlspecialchars((string) ($check['status_code'] ?? '')) ?></td>
-                        <td><?= htmlspecialchars(truncate($check['h1'] ?? '')) ?></td>
-                        <td><?= htmlspecialchars(truncate($check['title'] ?? '')) ?></td>
-                        <td><?= htmlspecialchars(truncate($check['description'] ?? '')) ?></td>
-                        <td><?= htmlspecialchars($check['created_at'] ?? '') ?></td>
-                    </tr>
+                        <tr>
+                            <td><?= htmlspecialchars((string) ($check['id'] ?? '')) ?></td>
+                            <td><?= htmlspecialchars((string) ($check['status_code'] ?? '')) ?></td>
+                            <td><?= htmlspecialchars(truncate($check['h1'] ?? '')) ?></td>
+                            <td><?= htmlspecialchars(truncate($check['title'] ?? '')) ?></td>
+                            <td><?= htmlspecialchars(truncate($check['description'] ?? '')) ?></td>
+                            <td><?= htmlspecialchars($check['created_at'] ?? '') ?></td>
+                        </tr>
                     <?php endforeach; ?>
                 <?php endif; ?>
             </tbody>
