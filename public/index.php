@@ -47,9 +47,14 @@ $container->set('flash', function () {
     return new Messages();
 });
 
-$container->set('renderer', function () {
+$container->set('renderer', function ($c) {
     $renderer = new PhpRenderer(__DIR__ . '/../templates');
     $renderer->setLayout('layouts/main.php');
+
+    // Глобально подмешиваем сообщения flash во все шаблоны
+    $flash = $c->get('flash');
+    $renderer->addAttribute('flashMessages', $flash->getMessages());
+
     return $renderer;
 });
 

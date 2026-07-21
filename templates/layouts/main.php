@@ -56,19 +56,26 @@
         </div>
     </nav>
 
-    <main class="container">
-        <?php if (isset($flashMessages) && is_array($flashMessages)) : ?>
+       <main class="container">
+        <?php if (!empty($flashMessages) && is_array($flashMessages)) : ?>
             <?php foreach ($flashMessages as $type => $messages) : ?>
                 <?php if (is_array($messages)) : ?>
                     <?php foreach ($messages as $message) : ?>
-                        <div class="alert alert-<?= $type === 'error' ? 'danger' : $type ?> alert-dismissible fade show" role="alert">
-                            <?php if ($type === 'error' || $type === 'danger') : ?>
+                        <?php
+                            // Мапим внутренние типы на стандартные классы Bootstrap
+                            $alertClass = $type;
+                        if ($type === 'error' || $type === 'danger') {
+                            $alertClass = 'danger';
+                        }
+                        ?>
+                        <div class="alert alert-<?= $alertClass ?> alert-dismissible fade show" role="alert">
+                            <?php if ($alertClass === 'danger') : ?>
                                 <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                            <?php elseif ($type === 'success') : ?>
+                            <?php elseif ($alertClass === 'success') : ?>
                                 <i class="bi bi-check-circle-fill me-2"></i>
                             <?php endif; ?>
                             <?= htmlspecialchars((string) $message) ?>
-                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            <button type="button" class="btn-close" data-bs-disconnect="alert" aria-label="Close"></button>
                         </div>
                     <?php endforeach; ?>
                 <?php endif; ?>
