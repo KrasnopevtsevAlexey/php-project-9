@@ -4,15 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Анализатор страниц</title>
-    <?php if ((getenv('APP_ENV') ?: 'local') === 'test') : ?>
-        <!-- Локальные пустые заглушки для прохождения разметки DOM в тестах без интернета -->
-        <style id="bootstrap-mock"></style>
-        <style id="bootstrap-icons-mock"></style>
-    <?php else : ?>
-        <!-- Внешние CDN-ресурсы для живого сайта (Render и локальная разработка) -->
-        <link href="https://jsdelivr.net" rel="stylesheet">
-        <link rel="stylesheet" href="https://jsdelivr.net">
-    <?php endif; ?>
+    <link href="https://jsdelivr.net" rel="stylesheet">
+    <link rel="stylesheet" href="https://jsdelivr.net">
     <style>
         body {
             background-color: #f0f2f5;
@@ -65,16 +58,10 @@
             <?php foreach ($flashMessages as $type => $messages) : ?>
                 <?php if (is_array($messages)) : ?>
                     <?php foreach ($messages as $message) : ?>
-                        <?php
-                            $alertClass = $type;
-                        if ($type === 'error' || $type === 'danger') {
-                            $alertClass = 'danger';
-                        }
-                        ?>
-                        <div class="alert alert-<?= $alertClass ?> alert-dismissible fade show" role="alert">
-                            <?php if ($alertClass === 'danger') : ?>
+                        <div class="alert alert-<?= $type === 'error' ? 'danger' : $type ?> alert-dismissible fade show" role="alert">
+                            <?php if ($type === 'error' || $type === 'danger') : ?>
                                 <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                            <?php elseif ($alertClass === 'success') : ?>
+                            <?php elseif ($type === 'success') : ?>
                                 <i class="bi bi-check-circle-fill me-2"></i>
                             <?php endif; ?>
                             <?= htmlspecialchars((string) $message) ?>
@@ -88,10 +75,6 @@
         <?= $content ?>
     </main>
 
-    <?php if ((getenv('APP_ENV') ?: 'local') === 'test') : ?>
-        <script id="bootstrap-js-mock"></script>
-    <?php else : ?>
-        <script src="https://jsdelivr.net"></script>
-    <?php endif; ?>
+    <script src="https://jsdelivr.net"></script>
 </body>
 </html>
