@@ -55,27 +55,10 @@ $errorMiddleware->setDefaultErrorHandler(
         $renderer = $app->getContainer()->get('renderer');
 
         $code = 500;
-        $title = 'Внутренняя ошибка сервера';
-        $message = 'Произошла непредвиденная ошибка. Мы уже работаем над её исправлением.';
-
-        if ($exception instanceof HttpNotFoundException) {
-            $code = 404;
-            $title = 'Страница не найдена';
-            $message = 'Запрашиваемый вами адрес или страница не существуют на нашем сервисе.';
-        } else {
-            error_log(sprintf(
-                ' Error [%d]: %s in %s:%d',
-                $code,
-                $exception->getMessage(),
-                $exception->getFile(),
-                $exception->getLine()
-            ));
-        }
-
         return $renderer->render($response, 'error.php', [
             'code' => $code,
-            'title' => $title,
-            'message' => $message,
+            'title' => 'Внутренняя ошибка сервера',
+            'message' => $exception->getMessage(),
             'routeParser' => $routeParser,
             'flashMessages' => []
         ])->withStatus($code);
@@ -188,12 +171,12 @@ $app->post('/urls', function (Request $request, Response $response) {
 })->setName('urls.store');
 
 // Проверка сайта
-$app->post('/urls/{id:[0-9]+}/checks', function (Request $request, Response $response, array $args) use ($app) {
+$app->post('/urls/{id:[0-9]+}/checks', function (Request $request, Response $response, array $args) {
     $id = (int) $args['id'];
     $url = Url::findById($id);
 
-    $routeParser = $app->getRouteCollector()->getRouteParser();
-    $flash = $app->getContainer()->get('flash');
+    $routeParser = RouteContext::fromRequest($request)->getRouteParser();
+    $flash = $this->get('flash');
 
     if (!$url) {
         $flash->addMessage('danger', 'Страница не найдена');
@@ -201,12 +184,7 @@ $app->post('/urls/{id:[0-9]+}/checks', function (Request $request, Response $res
         return $response->withHeader('Location', $redirectUrl)->withStatus(302);
     }
 
-    $client = new Client([
-        'allow_redirects' => true,
-        'timeout' => 5,
-        'connect_timeout' => 3,
-        'verify' => false,
-    ]);
+    $client = new Client(['timeout' => 4, 'connect_timeout' => 2, 'verify' => false]);
 
     try {
         $responseHttp = $client->get($url['name']);
@@ -214,33 +192,16 @@ $app->post('/urls/{id:[0-9]+}/checks', function (Request $request, Response $res
         $html = (string) $responseHttp->getBody();
 
         $crawler = new Crawler($html);
-
-        $title = '';
-        $titleNode = $crawler->filter('title')->first();
-        if ($titleNode->count() > 0) {
-            $title = trim($titleNode->text());
-        }
-
-        $h1 = '';
-        $h1Node = $crawler->filter('h1')->first();
-        if ($h1Node->count() > 0) {
-            $h1 = trim($h1Node->text());
-        }
-
-        $description = '';
-        $metaNode = $crawler->filter('meta[name="description"]')->first();
-        if ($metaNode->count() > 0) {
-            $description = trim($metaNode->attr('content') ?? '');
-        }
-
-        $createdAt = \Carbon\Carbon::now()->toDateTimeString();
+        $title = $crawler->filter('title')->count() > 0 ? trim($crawler->filter('title')->first()->text()) : null;
+        $h1 = $crawler->filter('h1')->count() > 0 ? trim($crawler->filter('h1')->first()->text()) : null;
+        $description = $crawler->filter('meta[name="description"]')->count() > 0 ? trim($crawler->filter('meta[name="description"]')->first()->attr('content') ?? '') : null;
 
         Check::save($id, [
             'status_code' => $statusCode,
             'h1' => !empty($h1) ? $h1 : null,
             'title' => !empty($title) ? $title : null,
             'description' => !empty($description) ? $description : null,
-            'created_at' => $createdAt
+            'created_at' => \Carbon\Carbon::now()->toDateTimeString()
         ]);
 
         $flash->addMessage('success', 'Страница успешно проверена');
