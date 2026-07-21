@@ -2,14 +2,6 @@
 
 declare(strict_types=1);
 
-if (PHP_SAPI === 'cli-server') {
-    $url = parse_url($_SERVER['REQUEST_URI']);
-    $file = __DIR__ . ($url['path'] ?? '');
-    if (is_file($file)) {
-        return false;
-    }
-}
-
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Slim\Factory\AppFactory;
@@ -36,7 +28,7 @@ if (PHP_SAPI === 'cli-server') {
     }
 }
 
-// Гарантированный глобальный старт сессии для избежания дедлоков однопоточного сервера
+// Гарантированный глобальный старт сессии для работы компонента Flash
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -47,14 +39,9 @@ $container->set('flash', function () {
     return new Messages();
 });
 
-$container->set('renderer', function ($c) {
+$container->set('renderer', function () {
     $renderer = new PhpRenderer(__DIR__ . '/../templates');
     $renderer->setLayout('layouts/main.php');
-
-    // Глобально подмешиваем сообщения flash во все шаблоны
-    $flash = $c->get('flash');
-    $renderer->addAttribute('flashMessages', $flash->getMessages());
-
     return $renderer;
 });
 

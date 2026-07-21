@@ -62,7 +62,6 @@
                 <?php if (is_array($messages)) : ?>
                     <?php foreach ($messages as $message) : ?>
                         <?php
-                            // Мапим внутренние типы на стандартные классы Bootstrap
                             $alertClass = $type;
                         if ($type === 'error' || $type === 'danger') {
                             $alertClass = 'danger';
@@ -75,7 +74,7 @@
                                 <i class="bi bi-check-circle-fill me-2"></i>
                             <?php endif; ?>
                             <?= htmlspecialchars((string) $message) ?>
-                            <button type="button" class="btn-close" data-bs-disconnect="alert" aria-label="Close"></button>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                         </div>
                     <?php endforeach; ?>
                 <?php endif; ?>
