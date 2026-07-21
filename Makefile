@@ -10,4 +10,5 @@ lint:
 	composer lint
 
 test:
-	composer test
+	php init.php
+	PHP_CLI_SERVER_WORKERS=5 composer test
