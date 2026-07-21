@@ -4,7 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Анализатор страниц</title>
-    <?php if ((getenv('APP_ENV') ?: 'local') !== 'test') : ?>
+    <?php if ((getenv('APP_ENV') ?: 'local') === 'test') : ?>
+        <!-- Локальные пустые заглушки для прохождения разметки DOM в тестах без интернета -->
+        <style id="bootstrap-mock"></style>
+        <style id="bootstrap-icons-mock"></style>
+    <?php else : ?>
+        <!-- Внешние CDN-ресурсы для живого сайта (Render и локальная разработка) -->
         <link href="https://jsdelivr.net" rel="stylesheet">
         <link rel="stylesheet" href="https://jsdelivr.net">
     <?php endif; ?>
@@ -73,7 +78,7 @@
                                 <i class="bi bi-check-circle-fill me-2"></i>
                             <?php endif; ?>
                             <?= htmlspecialchars((string) $message) ?>
-                            <button type="button" class="btn-close" data-bs-toggle="alert" aria-label="Close"></button>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                         </div>
                     <?php endforeach; ?>
                 <?php endif; ?>
@@ -83,7 +88,9 @@
         <?= $content ?>
     </main>
 
-    <?php if ((getenv('APP_ENV') ?: 'local') !== 'test') : ?>
+    <?php if ((getenv('APP_ENV') ?: 'local') === 'test') : ?>
+        <script id="bootstrap-js-mock"></script>
+    <?php else : ?>
         <script src="https://jsdelivr.net"></script>
     <?php endif; ?>
 </body>
