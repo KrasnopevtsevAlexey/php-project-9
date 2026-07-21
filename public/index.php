@@ -95,10 +95,11 @@ $app->get('/', function (Request $request, Response $response) use ($app) {
     $url = $_SESSION['invalid_url'] ?? '';
     unset($_SESSION['invalid_url']);
 
+    $renderer->addAttribute('flashMessages', $flash->getMessages() ?: []);
+
     return $renderer->render($response, 'index.php', [
         'url' => $url,
-        'routeParser' => $routeParser,
-        'flashMessages' => $flash->getMessages() ?: []
+        'routeParser' => $routeParser
     ]);
 })->setName('home');
 
@@ -110,10 +111,11 @@ $app->get('/urls', function (Request $request, Response $response) use ($app) {
     $renderer = $container->get('renderer');
     $flash = $container->get('flash');
 
+    $renderer->addAttribute('flashMessages', $flash->getMessages() ?: []);
+
     return $renderer->render($response, 'urls/index.php', [
         'urls' => $urls,
-        'routeParser' => $routeParser,
-        'flashMessages' => $flash->getMessages() ?: []
+        'routeParser' => $routeParser
     ]);
 })->setName('urls.index');
 
@@ -138,11 +140,12 @@ $app->get('/urls/{id:[0-9]+}', function (Request $request, Response $response, a
 
     $checks = Check::findByUrlId($id);
 
+    $renderer->addAttribute('flashMessages', $flash->getMessages() ?: []);
+
     return $renderer->render($response, 'urls/show.php', [
         'url' => $url,
         'checks' => $checks,
-        'routeParser' => $routeParser,
-        'flashMessages' => $flash->getMessages() ?: []
+        'routeParser' => $routeParser
     ]);
 })->setName('urls.show');
 
@@ -168,10 +171,11 @@ $app->post('/urls', function (Request $request, Response $response) use ($app) {
         $flash->addMessage('danger', $firstError);
         $_SESSION['invalid_url'] = $url;
 
+        $renderer->addAttribute('flashMessages', $flash->getMessages() ?: []);
+
         $response = $renderer->render($response, 'index.php', [
             'url' => $url,
-            'routeParser' => $routeParser,
-            'flashMessages' => $flash->getMessages() ?: []
+            'routeParser' => $routeParser
         ]);
 
         return $response->withStatus(422);
