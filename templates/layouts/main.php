@@ -12,11 +12,9 @@
         .navbar-nav { display: flex; list-style: none; margin: 0; padding: 0; gap: 1rem; }
         .nav-link { color: rgba(255,255,255,0.55); text-decoration: none; }
         .nav-link:hover { color: rgba(255,255,255,0.75); }
-        .alert { padding: 15px; margin-bottom: 20px; border: 1px solid transparent; border-radius: 4px; position: relative; box-sizing: border-box; }
-        .alert-danger { background-color: #f8d7da; border-color: #f5c6cb; color: #721c24; }
+        .alert { padding: 15px; margin-bottom: 20px; border: 1px solid #ff9999; border-radius: 4px; display: block; box-sizing: border-box; background-color: #ffe6e6; color: #cc0000; }
         .alert-success { background-color: #d4edda; border-color: #c3e6cb; color: #155724; }
         .alert-info { background-color: #d1ecf1; border-color: #bee5eb; color: #0c5460; }
-        .btn-close { position: absolute; top: 0; right: 0; padding: 1.25rem 1rem; color: inherit; background: transparent; border: 0; cursor: pointer; font-size: 1.25rem; }
     </style>
 </head>
 <body>
@@ -30,13 +28,7 @@
         </div>
     </nav>
 
-        <main class="container">
-        <?php
-            $flashMessages = [];
-        if (isset($getFlashMessages) && $getFlashMessages instanceof \Closure) {
-            $flashMessages = $getFlashMessages();
-        }
-        ?>
+    <main class="container">
         <?php if (!empty($flashMessages) && is_array($flashMessages)) : ?>
             <?php foreach ($flashMessages as $type => $messages) : ?>
                 <?php if (is_array($messages)) : ?>
@@ -49,7 +41,6 @@
                         ?>
                         <div class="alert alert-<?= $alertClass ?>" role="alert">
                             <?= htmlspecialchars((string) $message) ?>
-                            <button type="button" class="btn-close" data-bs-dismiss="alert">×</button>
                         </div>
                     <?php endforeach; ?>
                 <?php endif; ?>
@@ -58,6 +49,5 @@
 
         <?= $content ?>
     </main>
-
 </body>
 </html>

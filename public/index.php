@@ -19,7 +19,6 @@ use Slim\Factory\AppFactory;
 use Slim\Routing\RouteContext;
 use Slim\Exception\HttpNotFoundException;
 use Slim\Views\PhpRenderer;
-use Slim\Flash\Messages;
 use DI\Container;
 use Valitron\Validator;
 use App\Url;
@@ -30,25 +29,9 @@ use Symfony\Component\DomCrawler\Crawler;
 
 $container = new Container();
 
-$container->set('flash', function () {
-    if (session_status() === PHP_SESSION_NONE) {
-        session_start();
-    }
-    return new Messages();
-});
-
-$container->set('renderer', function ($c) {
+$container->set('renderer', function () {
     $renderer = new PhpRenderer(__DIR__ . '/../templates');
     $renderer->setLayout('layouts/main.php');
-
-    // Безопасный динамический вызов флеш-сообщений
-    $renderer->addAttribute('getFlashMessages', function () use ($c) {
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
-        return $c->get('flash')->getMessages() ?: [];
-    });
-
     return $renderer;
 });
 
@@ -86,77 +69,89 @@ $errorMiddleware->setDefaultErrorHandler(
             'code' => $code,
             'title' => $title,
             'message' => $message,
-            'routeParser' => $routeParser
+            'routeParser' => $routeParser,
+            'flashMessages' => []
         ])->withStatus($code);
     }
 );
 
 // Главная страница
-$app->get('/', function (Request $request, Response $response) use ($app) {
+$app->get('/', function (Request $request, Response $response) {
     $routeParser = RouteContext::fromRequest($request)->getRouteParser();
-    $container = $app->getContainer();
-    $renderer = $container->get('renderer');
+    $renderer = $this->get('renderer');
+    $queryParams = $request->getQueryParams();
 
-    if (session_status() === PHP_SESSION_NONE) {
-        session_start();
+    $flashMessages = [];
+    if (isset($queryParams['error'])) {
+        $flashMessages['danger'] = [base64_decode($queryParams['error'])];
     }
-    $url = $_SESSION['invalid_url'] ?? '';
-    unset($_SESSION['invalid_url']);
 
     return $renderer->render($response, 'index.php', [
-        'url' => $url,
-        'routeParser' => $routeParser
+        'url' => $queryParams['url'] ?? '',
+        'routeParser' => $routeParser,
+        'flashMessages' => $flashMessages
     ]);
 })->setName('home');
 
 // Список сайтов
-$app->get('/urls', function (Request $request, Response $response) use ($app) {
+$app->get('/urls', function (Request $request, Response $response) {
     $urls = Url::findAll();
     $routeParser = RouteContext::fromRequest($request)->getRouteParser();
-    $container = $app->getContainer();
-    $renderer = $container->get('renderer');
+    $renderer = $this->get('renderer');
 
     return $renderer->render($response, 'urls/index.php', [
         'urls' => $urls,
-        'routeParser' => $routeParser
+        'routeParser' => $routeParser,
+        'flashMessages' => []
     ]);
 })->setName('urls.index');
 
 // Просмотр конкретного сайта
-$app->get('/urls/{id:[0-9]+}', function (Request $request, Response $response, array $args) use ($app) {
+$app->get('/urls/{id:[0-9]+}', function (Request $request, Response $response, array $args) {
     $id = (int) $args['id'];
     $url = Url::findById($id);
     $routeParser = RouteContext::fromRequest($request)->getRouteParser();
-    $container = $app->getContainer();
-    $renderer = $container->get('renderer');
+    $renderer = $this->get('renderer');
+    $queryParams = $request->getQueryParams();
 
     if (!$url) {
         return $renderer->render($response, 'error.php', [
             'code' => 404,
             'title' => 'Сайт не найден',
             'message' => "Сайт с идентификатором ID {$id} отсутствует в базе данных.",
-            'routeParser' => $routeParser
+            'routeParser' => $routeParser,
+            'flashMessages' => []
         ])->withStatus(404);
     }
 
     $checks = Check::findByUrlId($id);
 
+    // СБОРКА АЛЕРТОВ ИЗ URL-ПАРАМЕТРОВ (Замена сессиям)
+    $flashMessages = [];
+    if (isset($queryParams['success'])) {
+        $flashMessages['success'] = ['Страница успешно добавлена'];
+    } elseif (isset($queryParams['exists'])) {
+        $flashMessages['info'] = ['Страница уже существует'];
+    } elseif (isset($queryParams['checked'])) {
+        $flashMessages['success'] = ['Страница успешно проверена'];
+    } elseif (isset($queryParams['check_error'])) {
+        $flashMessages['danger'] = [base64_decode($queryParams['check_error'])];
+    }
+
     return $renderer->render($response, 'urls/show.php', [
         'url' => $url,
         'checks' => $checks,
-        'routeParser' => $routeParser
+        'routeParser' => $routeParser,
+        'flashMessages' => $flashMessages
     ]);
 })->setName('urls.show');
 
 // Добавление сайта
-$app->post('/urls', function (Request $request, Response $response) use ($app) {
+$app->post('/urls', function (Request $request, Response $response) {
     $data = $request->getParsedBody();
     $url = trim($data['url'] ?? '');
 
     $routeParser = RouteContext::fromRequest($request)->getRouteParser();
-    $container = $app->getContainer();
-    $renderer = $container->get('renderer');
-    $flash = $container->get('flash');
 
     $validator = new Validator(['url' => $url]);
     $validator->rule('required', 'url')->message('URL не должен быть пустым');
@@ -167,17 +162,9 @@ $app->post('/urls', function (Request $request, Response $response) use ($app) {
         $errors = $validator->errors();
         $firstError = array_shift($errors['url']);
 
-        $flash->addMessage('danger', $firstError);
-
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
-        $_SESSION['invalid_url'] = $url;
-
-        return $renderer->render($response, 'index.php', [
-            'url' => $url,
-            'routeParser' => $routeParser
-        ])->withStatus(422);
+        // При ошибке валидации перенаправляем на GET / с параметром ошибки
+        $redirectUrl = $routeParser->urlFor('home') . '?error=' . base64_encode($firstError) . '&url=' . urlencode($url);
+        return $response->withHeader('Location', $redirectUrl)->withStatus(302);
     }
 
     $parsed = parse_url($url);
@@ -186,16 +173,15 @@ $app->post('/urls', function (Request $request, Response $response) use ($app) {
     $existingUrl = Url::findByName($normalizedName);
 
     if ($existingUrl) {
-        $flash->addMessage('info', 'Страница уже существует');
-        $redirectUrl = $routeParser->urlFor('urls.show', ['id' => (string) $existingUrl['id']]);
+        $redirectUrl = $routeParser->urlFor('urls.show', ['id' => (string) $existingUrl['id']]) . '?exists=1';
         return $response->withHeader('Location', $redirectUrl)->withStatus(302);
     }
 
     $createdAt = \Carbon\Carbon::now()->toDateTimeString();
     $newId = Url::save($normalizedName, $createdAt);
 
-    $flash->addMessage('success', 'Страница успешно добавлена');
-    $redirectUrl = $routeParser->urlFor('urls.show', ['id' => $newId]);
+    // Добавляем флаг ?success=1 прямо в URL редиректа!
+    $redirectUrl = $routeParser->urlFor('urls.show', ['id' => $newId]) . '?success=1';
     return $response->withHeader('Location', $redirectUrl)->withStatus(302);
 })->setName('urls.store');
 
@@ -204,12 +190,9 @@ $app->post('/urls/{id:[0-9]+}/checks', function (Request $request, Response $res
     $id = (int) $args['id'];
     $url = Url::findById($id);
 
-    $container = $app->getContainer();
     $routeParser = $app->getRouteCollector()->getRouteParser();
-    $flash = $container->get('flash');
 
     if (!$url) {
-        $flash->addMessage('danger', 'Страница не найдена');
         $redirectUrl = $routeParser->urlFor('urls.index');
         return $response->withHeader('Location', $redirectUrl)->withStatus(302);
     }
@@ -220,6 +203,8 @@ $app->post('/urls/{id:[0-9]+}/checks', function (Request $request, Response $res
         'connect_timeout' => 3,
         'verify' => false,
     ]);
+
+    $checkParam = 'checked=1';
 
     try {
         $responseHttp = $client->get($url['name']);
@@ -255,17 +240,15 @@ $app->post('/urls/{id:[0-9]+}/checks', function (Request $request, Response $res
             'description' => !empty($description) ? $description : null,
             'created_at' => $createdAt
         ]);
-
-        $flash->addMessage('success', 'Страница успешно проверена');
     } catch (\GuzzleHttp\Exception\ConnectException $e) {
-        $flash->addMessage('danger', 'Произошла ошибка при проверке, не удалось подключиться');
+        $checkParam = 'check_error=' . base64_encode('Произошла ошибка при проверке, не удалось подключиться');
     } catch (\GuzzleHttp\Exception\RequestException $e) {
-        $flash->addMessage('danger', 'Произошла ошибка при проверке: сервер ответил с ошибкой');
+        $checkParam = 'check_error=' . base64_encode('Произошла ошибка при проверке: сервер ответил с ошибкой');
     } catch (\Exception $e) {
-        $flash->addMessage('danger', 'Произошла непредвиденная ошибка при проверке');
+        $checkParam = 'check_error=' . base64_encode('Произошла непредвиденная ошибка при проверке');
     }
 
-    $redirectUrl = $routeParser->urlFor('urls.show', ['id' => (string) $id]);
+    $redirectUrl = $routeParser->urlFor('urls.show', ['id' => (string) $id]) . '?' . $checkParam;
     return $response->withHeader('Location', $redirectUrl)->withStatus(302);
 })->setName('urls.checks.store');
 
