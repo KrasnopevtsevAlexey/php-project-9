@@ -39,9 +39,16 @@ $container->set('flash', function () {
     return new Messages();
 });
 
-$container->set('renderer', function () {
+$container->set('renderer', function ($c) {
     $renderer = new PhpRenderer(__DIR__ . '/../templates');
     $renderer->setLayout('layouts/main.php');
+
+    // Передаем фабрику флеш-сообщений как замыкание.
+    // Это заставит макет прочитать сессию в самый последний момент рендеринга HTML!
+    $renderer->addAttribute('flashMessages', function () use ($c) {
+        return $c->get('flash')->getMessages() ?: [];
+    });
+
     return $renderer;
 });
 
@@ -79,8 +86,7 @@ $errorMiddleware->setDefaultErrorHandler(
             'code' => $code,
             'title' => $title,
             'message' => $message,
-            'routeParser' => $routeParser,
-            'flashMessages' => []
+            'routeParser' => $routeParser
         ])->withStatus($code);
     }
 );
@@ -90,12 +96,9 @@ $app->get('/', function (Request $request, Response $response) use ($app) {
     $routeParser = RouteContext::fromRequest($request)->getRouteParser();
     $container = $app->getContainer();
     $renderer = $container->get('renderer');
-    $flash = $container->get('flash');
 
     $url = $_SESSION['invalid_url'] ?? '';
     unset($_SESSION['invalid_url']);
-
-    $renderer->addAttribute('flashMessages', $flash->getMessages() ?: []);
 
     return $renderer->render($response, 'index.php', [
         'url' => $url,
@@ -109,9 +112,6 @@ $app->get('/urls', function (Request $request, Response $response) use ($app) {
     $routeParser = RouteContext::fromRequest($request)->getRouteParser();
     $container = $app->getContainer();
     $renderer = $container->get('renderer');
-    $flash = $container->get('flash');
-
-    $renderer->addAttribute('flashMessages', $flash->getMessages() ?: []);
 
     return $renderer->render($response, 'urls/index.php', [
         'urls' => $urls,
@@ -126,21 +126,17 @@ $app->get('/urls/{id:[0-9]+}', function (Request $request, Response $response, a
     $routeParser = RouteContext::fromRequest($request)->getRouteParser();
     $container = $app->getContainer();
     $renderer = $container->get('renderer');
-    $flash = $container->get('flash');
 
     if (!$url) {
         return $renderer->render($response, 'error.php', [
             'code' => 404,
             'title' => 'Сайт не найден',
             'message' => "Сайт с идентификатором ID {$id} отсутствует в базе данных.",
-            'routeParser' => $routeParser,
-            'flashMessages' => []
+            'routeParser' => $routeParser
         ])->withStatus(404);
     }
 
     $checks = Check::findByUrlId($id);
-
-    $renderer->addAttribute('flashMessages', $flash->getMessages() ?: []);
 
     return $renderer->render($response, 'urls/show.php', [
         'url' => $url,
@@ -170,8 +166,6 @@ $app->post('/urls', function (Request $request, Response $response) use ($app) {
 
         $flash->addMessage('danger', $firstError);
         $_SESSION['invalid_url'] = $url;
-
-        $renderer->addAttribute('flashMessages', $flash->getMessages() ?: []);
 
         $response = $renderer->render($response, 'index.php', [
             'url' => $url,

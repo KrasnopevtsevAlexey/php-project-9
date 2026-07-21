@@ -56,7 +56,13 @@
         </div>
     </nav>
 
-       <main class="container">
+          <main class="container">
+        <?php
+            // Если передан хелпер-замыкание, вычисляем его для получения реального массива сообщений
+        if (isset($flashMessages) && $flashMessages instanceof \Closure) {
+            $flashMessages = $flashMessages();
+        }
+        ?>
         <?php if (!empty($flashMessages) && is_array($flashMessages)) : ?>
             <?php foreach ($flashMessages as $type => $messages) : ?>
                 <?php if (is_array($messages)) : ?>
