@@ -30,7 +30,13 @@
         </div>
     </nav>
 
-    <main class="container">
+        <main class="container">
+        <?php
+            $flashMessages = [];
+        if (isset($getFlashMessages) && $getFlashMessages instanceof \Closure) {
+            $flashMessages = $getFlashMessages();
+        }
+        ?>
         <?php if (!empty($flashMessages) && is_array($flashMessages)) : ?>
             <?php foreach ($flashMessages as $type => $messages) : ?>
                 <?php if (is_array($messages)) : ?>
