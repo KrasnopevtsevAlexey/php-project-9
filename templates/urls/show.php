@@ -1,13 +1,16 @@
 <?php
-function truncate(?string $text, int $length = 200): string
-{
-    if (empty($text)) {
-        return '';
+<  ? php
+if (!function_exists('truncate')) {
+    function truncate(?string $text, int $length = 200): string
+    {
+        if (empty($text)) {
+            return '';
+        }
+        if (mb_strlen($text) <= $length) {
+            return $text;
+        }
+        return mb_substr($text, 0, $length) . '...';
     }
-    if (mb_strlen($text) <= $length) {
-        return $text;
-    }
-    return mb_substr($text, 0, $length) . '...';
 }
 ?>
 
@@ -50,7 +53,9 @@ function truncate(?string $text, int $length = 200): string
                 </tr>
             </thead>
             <tbody>
-                <?php if (empty($checks)) : ?>
+                <?php if (empty($checks)) {
+                    : ;
+                } ?>
                 <tr>
                     <td colspan="6" class="text-center">Проверок пока нет</td>
                 </tr>
