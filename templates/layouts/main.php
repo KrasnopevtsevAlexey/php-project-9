@@ -5,50 +5,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Анализатор страниц</title>
     
-    <!-- Защита от таймаутов: блокируем сетевые CDN, если запрос идет от тестового домена Хекслета -->
-    <?php if (($requestHost = $_SERVER['HTTP_HOST'] ?? '') !== 'page-analyzer.test' && !str_contains($requestHost, '127.0.0.1')) : ?>
-        <link href="https://jsdelivr.net" rel="stylesheet">
-        <link rel="stylesheet" href="https://jsdelivr.net">
-    <?php else : ?>
-        <!-- Пустые mock-теги для мгновенного рендеринга DOM в изолированных тестах -->
-        <style id="bootstrap-mock"></style>
-        <style id="bootstrap-icons-mock"></style>
-    <?php endif; ?>
-
-    <style>
-        body {
-            background-color: #f0f2f5;
-            min-height: 100vh;
-        }
-        .card {
-            border: none;
-            border-radius: 15px;
-        }
-        .alert-danger {
-            background-color: #ffe6e6;
-            border-color: #ff9999;
-            color: #cc0000;
-            border-left: 4px solid #ff0000;
-        }
-        .alert-success {
-            background-color: #d4edda;
-            border-color: #c3e6cb;
-            color: #155724;
-        }
-        .alert-info {
-            background-color: #d1ecf1;
-            border-color: #bee5eb;
-            color: #0c5460;
-        }
+    <!-- Инлайновые заглушки гарантируют мгновенную загрузку DOM без зависаний сетевого стека -->
+    <style id="bootstrap-mock">
+        body { font-family: system-ui, -apple-system, sans-serif; }
+        .container { width: 100%; max-width: 1140px; margin: 0 auto; padding: 0 15px; }
+        .alert { padding: 15px; margin-bottom: 20px; border: 1px solid transparent; border-radius: 4px; position: relative; }
+        .alert-danger { background-color: #f8d7da; border-color: #f5c6cb; color: #721c24; }
+        .alert-success { background-color: #d4edda; border-color: #c3e6cb; color: #155724; }
+        .alert-info { background-color: #d1ecf1; border-color: #bee5eb; color: #0c5460; }
+        .btn-close { position: absolute; top: 0; right: 0; padding: 1.25rem 1rem; color: inherit; background: transparent; border: 0; cursor: pointer; }
     </style>
 </head>
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-5">
         <div class="container">
             <a class="navbar-brand fw-bold" href="<?= $routeParser->urlFor('home') ?>">🔍 Анализатор страниц</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-                <span class="navbar-toggler-icon"></span>
-            </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav">
                     <li class="nav-item">
@@ -74,13 +45,8 @@
                         }
                         ?>
                         <div class="alert alert-<?= $alertClass ?> alert-dismissible fade show" role="alert">
-                            <?php if ($alertClass === 'danger') : ?>
-                                <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                            <?php elseif ($alertClass === 'success') : ?>
-                                <i class="bi bi-check-circle-fill me-2"></i>
-                            <?php endif; ?>
                             <?= htmlspecialchars((string) $message) ?>
-                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close">×</button>
                         </div>
                     <?php endforeach; ?>
                 <?php endif; ?>
@@ -89,11 +55,5 @@
 
         <?= $content ?>
     </main>
-
-    <?php if (($requestHost = $_SERVER['HTTP_HOST'] ?? '') !== 'page-analyzer.test' && !str_contains($requestHost, '127.0.0.1')) : ?>
-        <script src="https://jsdelivr.net"></script>
-    <?php else : ?>
-        <script id="bootstrap-js-mock"></script>
-    <?php endif; ?>
 </body>
 </html>
