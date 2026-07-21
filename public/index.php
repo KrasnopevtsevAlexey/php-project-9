@@ -39,9 +39,11 @@ $container->set('flash', function () {
     return new Messages();
 });
 
-$container->set('renderer', function () {
+$container->set('renderer', function ($c) {
     $renderer = new PhpRenderer(__DIR__ . '/../templates');
     $renderer->setLayout('layouts/main.php');
+    // Прокидываем сам живой объект flash во все шаблоны глобально
+    $renderer->addAttribute('flash', $c->get('flash'));
     return $renderer;
 });
 
@@ -49,24 +51,11 @@ AppFactory::setContainer($container);
 $app = AppFactory::create();
 $app->addBodyParsingMiddleware();
 
-// MIDDLEWARE: Исправлено — добавлен return. Прокидывает сообщения flash на каждый запрос.
-$app->add(function (Request $request, $handler) use ($app) {
-    $container = $app->getContainer();
-    $flash = $container->get('flash');
-    $renderer = $container->get('renderer');
-
-    $renderer->addAttribute('flashMessages', $flash->getMessages() ?: []);
-
-    return $handler->handle($request);
-});
-
 // Кастомный обработчик ошибок
 $errorMiddleware = $app->addErrorMiddleware(false, true, true);
 $errorMiddleware->setDefaultErrorHandler(
     function (Request $request, Throwable $exception, bool $displayErrorDetails) use ($app) {
         $response = $app->getResponseFactory()->createResponse();
-
-        // БЕЗОПАСНО: Получаем роутер напрямую из приложения, а не из контекста запроса
         $routeParser = $app->getRouteCollector()->getRouteParser();
         $renderer = $app->getContainer()->get('renderer');
 
@@ -92,8 +81,7 @@ $errorMiddleware->setDefaultErrorHandler(
             'code' => $code,
             'title' => $title,
             'message' => $message,
-            'routeParser' => $routeParser,
-            'flashMessages' => []
+            'routeParser' => $routeParser
         ])->withStatus($code);
     }
 );
@@ -200,7 +188,6 @@ $app->post('/urls/{id:[0-9]+}/checks', function (Request $request, Response $res
     $id = (int) $args['id'];
     $url = Url::findById($id);
 
-    // БЕЗОПАСНО: Получаем роутер и флеш напрямую из контейнера приложения, избегая дедлоков RouteContext
     $container = $app->getContainer();
     $routeParser = $app->getRouteCollector()->getRouteParser();
     $flash = $container->get('flash');
@@ -211,7 +198,6 @@ $app->post('/urls/{id:[0-9]+}/checks', function (Request $request, Response $res
         return $response->withHeader('Location', $redirectUrl)->withStatus(302);
     }
 
-    // Задаем жесткие, быстрые лимиты, чтобы локальная сеть WSL 2 не вешала сервер
     $client = new Client([
         'allow_redirects' => true,
         'timeout' => 5,

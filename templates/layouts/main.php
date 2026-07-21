@@ -62,7 +62,14 @@
         </div>
     </nav>
 
-    <main class="container">
+       <main class="container">
+        <?php
+            // Динамически читаем сообщения из живого объекта flash, переданного через атрибуты
+            $flashMessages = [];
+        if (isset($flash) && method_exists($flash, 'getMessages')) {
+            $flashMessages = $flash->getMessages() ?: [];
+        }
+        ?>
         <?php if (!empty($flashMessages) && is_array($flashMessages)) : ?>
             <?php foreach ($flashMessages as $type => $messages) : ?>
                 <?php if (is_array($messages)) : ?>
