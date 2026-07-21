@@ -4,8 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Анализатор страниц</title>
-    <link href="https://jsdelivr.net" rel="stylesheet">
-    <link rel="stylesheet" href="https://jsdelivr.net">
+    <?php if ((getenv('APP_ENV') ?: 'local') !== 'test') : ?>
+        <link href="https://jsdelivr.net" rel="stylesheet">
+        <link rel="stylesheet" href="https://jsdelivr.net">
+    <?php endif; ?>
     <style>
         body {
             background-color: #f0f2f5;
@@ -75,6 +77,9 @@
         <?= $content ?>
     </main>
 
-    <script src="https://jsdelivr.net"></script>
+    <?php if ((getenv('APP_ENV') ?: 'local') !== 'test') : ?>
+        <script src="https://jsdelivr.net"></script>
+    <?php endif; ?>
 </body>
 </html>
+
