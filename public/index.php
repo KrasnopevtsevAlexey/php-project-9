@@ -8,7 +8,6 @@ if (session_status() === PHP_SESSION_NONE) {
 
 require __DIR__ . '/../vendor/autoload.php';
 
-// Фронт-контроллерный роутинг статики встроенного PHP-сервера
 if (PHP_SAPI === 'cli-server') {
     $url = parse_url($_SERVER['REQUEST_URI']);
     $file = __DIR__ . ($url['path'] ?? '');
@@ -23,6 +22,7 @@ use Slim\Factory\AppFactory;
 use Slim\Routing\RouteContext;
 use Slim\Exception\HttpNotFoundException;
 use Slim\Views\PhpRenderer;
+use Slim\Flash\Messages;
 use DI\Container;
 use Valitron\Validator;
 use App\Url;
@@ -31,6 +31,10 @@ use GuzzleHttp\Client;
 use Symfony\Component\DomCrawler\Crawler;
 
 $container = new Container();
+
+$container->set('flash', function () {
+    return new Messages();
+});
 
 $container->set('renderer', function () {
     $renderer = new PhpRenderer(__DIR__ . '/../templates');
@@ -68,7 +72,7 @@ function getFlashMessages(): array
         session_start();
     }
     $messages = $_SESSION['flash_messages'] ?? [];
-    $_SESSION['flash_messages'] = []; // Безопасное ручное обнуление
+    $_SESSION['flash_messages'] = [];
     return $messages;
 }
 
@@ -181,11 +185,11 @@ $app->post('/urls', function (Request $request, Response $response) {
 })->setName('urls.store');
 
 // Проверка сайта
-$app->post('/urls/{id:[0-9]+}/checks', function (Request $request, Response $response, array $args) use ($app) {
+$app->post('/urls/{id:[0-9]+}/checks', function (Request $request, Response $response, array $args) {
     $id = (int) $args['id'];
     $url = Url::findById($id);
 
-    $routeParser = $app->getRouteCollector()->getRouteParser();
+    $routeParser = RouteContext::fromRequest($request)->getRouteParser();
 
     if (session_status() === PHP_SESSION_NONE) {
         session_start();

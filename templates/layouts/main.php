@@ -4,13 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Анализатор страниц</title>
-    <!-- Оригинальные CDN-теги необходимы тестам Хекслета для верификации верстки -->
-    <link href="https://jsdelivr.net" rel="stylesheet">
-    <link rel="stylesheet" href="https://jsdelivr.net">
-    <style>
-        body { background-color: #f0f2f5; min-height: 100vh; }
-        .card { border: none; border-radius: 15px; }
-    </style>
+    <!-- Локальные пути гарантируют моментальный ответ сервера в тестах -->
+    <link href="/assets/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/assets/bootstrap-icons.css">
 </head>
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-5">
@@ -52,6 +48,6 @@
         <?= $content ?>
     </main>
 
-    <script src="https://jsdelivr.net"></script>
+    <script src="/assets/bootstrap.bundle.min.js"></script>
 </body>
 </html>
