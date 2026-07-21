@@ -4,9 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Анализатор страниц</title>
-    <!-- Локальные пути гарантируют моментальный ответ сервера в тестах -->
-    <link href="/assets/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="/assets/bootstrap-icons.css">
+    <link href="https://jsdelivr.net" rel="stylesheet">
+    <link rel="stylesheet" href="https://jsdelivr.net">
+    <style>
+        body { background-color: #f0f2f5; min-height: 100vh; }
+        .card { border: none; border-radius: 15px; }
+    </style>
 </head>
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-5">
@@ -26,6 +29,12 @@
     </nav>
 
     <main class="container">
+        <?php
+            $flashMessages = [];
+        if (isset($getFlashMessages) && $getFlashMessages instanceof \Closure) {
+            $flashMessages = $getFlashMessages();
+        }
+        ?>
         <?php if (!empty($flashMessages) && is_array($flashMessages)) : ?>
             <?php foreach ($flashMessages as $type => $messages) : ?>
                 <?php if (is_array($messages)) : ?>
@@ -48,6 +57,6 @@
         <?= $content ?>
     </main>
 
-    <script src="/assets/bootstrap.bundle.min.js"></script>
+    <script src="https://jsdelivr.net"></script>
 </body>
 </html>
