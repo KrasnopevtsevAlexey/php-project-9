@@ -14,7 +14,9 @@ class Connection
             $appEnv = getenv('APP_ENV') ?: 'local';
 
             if ($appEnv === 'test' || $appEnv === 'local') {
-                $dbPath = __DIR__ . '/../database.sqlite';
+                // Переносим базу во временную папку ОС для обхода ограничений прав доступа в Docker
+                $dbPath = $appEnv === 'test' ? '/tmp/database.sqlite' : __DIR__ . '/../database.sqlite';
+
                 self::$connection = new PDO("sqlite:{$dbPath}");
                 self::$connection->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
                 self::$connection->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
@@ -66,8 +68,7 @@ class Connection
                         ");
                     } catch (\PDOException $e) {
                         error_log("PostgreSQL error: " . $e->getMessage());
-                        $dbPath = __DIR__ . '/../database.sqlite';
-                        self::$connection = new PDO("sqlite:{$dbPath}");
+                        self::$connection = new PDO("sqlite:/tmp/database.sqlite");
                         self::$connection->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
                         self::$connection->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
                     }
