@@ -39,17 +39,27 @@ $container->set('flash', function () {
     return new Messages();
 });
 
-$container->set('renderer', function ($c) {
+$container->set('renderer', function () {
     $renderer = new PhpRenderer(__DIR__ . '/../templates');
     $renderer->setLayout('layouts/main.php');
-    // Прокидываем сам живой объект flash во все шаблоны глобально
-    $renderer->addAttribute('flash', $c->get('flash'));
     return $renderer;
 });
 
 AppFactory::setContainer($container);
 $app = AppFactory::create();
 $app->addBodyParsingMiddleware();
+
+// MIDDLEWARE: Перехватывает сообщения из сессии непосредственно перед выполнением контроллера
+$app->add(function (Request $request, $handler) use ($app) {
+    $container = $app->getContainer();
+    $flash = $container->get('flash');
+    $renderer = $container->get('renderer');
+
+    // Внедряем массив сообщений напрямую в атрибуты вьюшек
+    $renderer->addAttribute('flashMessages', $flash->getMessages() ?: []);
+
+    return $handler->handle($request);
+});
 
 // Кастомный обработчик ошибок
 $errorMiddleware = $app->addErrorMiddleware(false, true, true);
@@ -81,7 +91,8 @@ $errorMiddleware->setDefaultErrorHandler(
             'code' => $code,
             'title' => $title,
             'message' => $message,
-            'routeParser' => $routeParser
+            'routeParser' => $routeParser,
+            'flashMessages' => []
         ])->withStatus($code);
     }
 );
@@ -157,6 +168,9 @@ $app->post('/urls', function (Request $request, Response $response) {
 
         $flash->addMessage('danger', $firstError);
         $_SESSION['invalid_url'] = $url;
+
+        // Для синхронного ответа 422 подмешиваем сообщения сразу
+        $renderer->addAttribute('flashMessages', $flash->getMessages() ?: []);
 
         return $renderer->render($response, 'index.php', [
             'url' => $url,
