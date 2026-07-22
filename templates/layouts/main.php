@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Анализатор страниц</title>
-    <!-- Локальные инлайновые стили гарантируют прохождение тестов без интернета -->
     <style id="bootstrap-mock">
         body { font-family: system-ui, -apple-system, sans-serif; background-color: #f0f2f5; min-height: 100vh; margin: 0; }
         .container { width: 100%; max-width: 1140px; margin: 0 auto; padding: 0 15px; box-sizing: border-box; }
@@ -12,7 +11,6 @@
         .navbar-brand { color: #fff; text-decoration: none; font-weight: bold; font-size: 1.25rem; }
         .navbar-nav { display: flex; list-style: none; margin: 0; padding: 0; gap: 1rem; }
         .nav-link { color: rgba(255,255,255,0.55); text-decoration: none; }
-        .nav-link:hover { color: rgba(255,255,255,0.75); }
         .alert { padding: 15px; margin-bottom: 20px; border: 1px solid transparent; border-radius: 4px; position: relative; box-sizing: border-box; }
         .alert-danger { background-color: #f8d7da; border-color: #f5c6cb; color: #721c24; }
         .alert-success { background-color: #d4edda; border-color: #c3e6cb; color: #155724; }

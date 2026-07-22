@@ -2,12 +2,9 @@
 
 declare(strict_types=1);
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
 require __DIR__ . '/../vendor/autoload.php';
 
+// Фронт-контроллерный роутинг статики встроенного PHP-сервера
 if (PHP_SAPI === 'cli-server') {
     $url = parse_url($_SERVER['REQUEST_URI']);
     $file = __DIR__ . ($url['path'] ?? '');
@@ -46,6 +43,22 @@ AppFactory::setContainer($container);
 $app = AppFactory::create();
 $app->addBodyParsingMiddleware();
 
+// MIDDLEWARE СЕССИЙ: Игнорирует curl-запросы Caddy и фоновые утилиты, защищая куки от перезаписи
+$app->add(function (Request $request, $handler) {
+    $userAgent = $request->getHeaderLine('User-Agent');
+    $uri = $request->getUri()->getPath();
+
+    // Не стартуем сессию для curl-проверок Caddy и статических файлов
+    $isCurl = str_contains(strtolower($userAgent), 'curl');
+    $isAsset = str_ends_with($uri, '.css') || str_ends_with($uri, '.js') || str_ends_with($uri, '.ico');
+
+    if (!$isCurl && !$isAsset && session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+
+    return $handler->handle($request);
+});
+
 // Кастомный обработчик ошибок
 $errorMiddleware = $app->addErrorMiddleware(false, true, true);
 $errorMiddleware->setDefaultErrorHandler(
@@ -71,13 +84,19 @@ $app->get('/', function (Request $request, Response $response) {
     $renderer = $this->get('renderer');
     $flash = $this->get('flash');
 
-    $url = $_SESSION['invalid_url'] ?? '';
-    unset($_SESSION['invalid_url']);
+    $url = '';
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        $url = $_SESSION['invalid_url'] ?? '';
+        unset($_SESSION['invalid_url']);
+    }
+
+    // Извлекаем флеш безопасно
+    $flashMessages = (session_status() === PHP_SESSION_ACTIVE) ? ($flash->getMessages() ?: []) : [];
 
     return $renderer->render($response, 'index.php', [
         'url' => $url,
         'routeParser' => $routeParser,
-        'flashMessages' => $flash->getMessages() ?: []
+        'flashMessages' => $flashMessages
     ]);
 })->setName('home');
 
@@ -88,10 +107,12 @@ $app->get('/urls', function (Request $request, Response $response) {
     $renderer = $this->get('renderer');
     $flash = $this->get('flash');
 
+    $flashMessages = (session_status() === PHP_SESSION_ACTIVE) ? ($flash->getMessages() ?: []) : [];
+
     return $renderer->render($response, 'urls/index.php', [
         'urls' => $urls,
         'routeParser' => $routeParser,
-        'flashMessages' => $flash->getMessages() ?: []
+        'flashMessages' => $flashMessages
     ]);
 })->setName('urls.index');
 
@@ -114,12 +135,13 @@ $app->get('/urls/{id:[0-9]+}', function (Request $request, Response $response, a
     }
 
     $checks = Check::findByUrlId($id);
+    $flashMessages = (session_status() === PHP_SESSION_ACTIVE) ? ($flash->getMessages() ?: []) : [];
 
     return $renderer->render($response, 'urls/show.php', [
         'url' => $url,
         'checks' => $checks,
         'routeParser' => $routeParser,
-        'flashMessages' => $flash->getMessages() ?: []
+        'flashMessages' => $flashMessages
     ]);
 })->setName('urls.show');
 
@@ -141,13 +163,17 @@ $app->post('/urls', function (Request $request, Response $response) {
         $errors = $validator->errors();
         $firstError = array_shift($errors['url']);
 
-        $flash->addMessage('danger', $firstError);
-        $_SESSION['invalid_url'] = $url;
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            $flash->addMessage('danger', $firstError);
+            $_SESSION['invalid_url'] = $url;
+        }
+
+        $flashMessages = (session_status() === PHP_SESSION_ACTIVE) ? ($flash->getMessages() ?: []) : [];
 
         return $renderer->render($response, 'index.php', [
             'url' => $url,
             'routeParser' => $routeParser,
-            'flashMessages' => $flash->getMessages() ?: []
+            'flashMessages' => $flashMessages
         ])->withStatus(422);
     }
 
@@ -157,7 +183,9 @@ $app->post('/urls', function (Request $request, Response $response) {
     $existingUrl = Url::findByName($normalizedName);
 
     if ($existingUrl) {
-        $flash->addMessage('info', 'Страница уже существует');
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            $flash->addMessage('info', 'Страница уже существует');
+        }
         $redirectUrl = $routeParser->urlFor('urls.show', ['id' => (string) $existingUrl['id']]);
         return $response->withHeader('Location', $redirectUrl)->withStatus(302);
     }
@@ -165,7 +193,10 @@ $app->post('/urls', function (Request $request, Response $response) {
     $createdAt = \Carbon\Carbon::now()->toDateTimeString();
     $newId = Url::save($normalizedName, $createdAt);
 
-    $flash->addMessage('success', 'Страница успешно добавлена');
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        $flash->addMessage('success', 'Страница успешно добавлена');
+    }
+
     $redirectUrl = $routeParser->urlFor('urls.show', ['id' => $newId]);
     return $response->withHeader('Location', $redirectUrl)->withStatus(302);
 })->setName('urls.store');
@@ -179,7 +210,9 @@ $app->post('/urls/{id:[0-9]+}/checks', function (Request $request, Response $res
     $flash = $this->get('flash');
 
     if (!$url) {
-        $flash->addMessage('danger', 'Страница не найдена');
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            $flash->addMessage('danger', 'Страница не найдена');
+        }
         $redirectUrl = $routeParser->urlFor('urls.index');
         return $response->withHeader('Location', $redirectUrl)->withStatus(302);
     }
@@ -204,9 +237,13 @@ $app->post('/urls/{id:[0-9]+}/checks', function (Request $request, Response $res
             'created_at' => \Carbon\Carbon::now()->toDateTimeString()
         ]);
 
-        $flash->addMessage('success', 'Страница успешно проверена');
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            $flash->addMessage('success', 'Страница успешно проверена');
+        }
     } catch (\Exception $e) {
-        $flash->addMessage('danger', 'Произошла ошибка при проверке, не удалось подключиться');
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            $flash->addMessage('danger', 'Произошла ошибка при проверке, не удалось подключиться');
+        }
     }
 
     $redirectUrl = $routeParser->urlFor('urls.show', ['id' => (string) $id]);
